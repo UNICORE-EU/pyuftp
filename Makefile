@@ -1,4 +1,4 @@
-TESTS = tests/unit
+TESTS = tests/
 INTEGRATIONTESTS = $(wildcard tests/integration/test_*.py)
 export PYTHONPATH := .
 PYTHON = python3

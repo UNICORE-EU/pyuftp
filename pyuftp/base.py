@@ -34,8 +34,8 @@ class Base:
     def add_command_args(self):
         pass
 
-    def run(self):
-        self.args = self.parser.parse_args(sys.argv[2:])
+    def run(self, args):
+        self.args = self.parser.parse_args(args)
         self.verbose = self.args.verbose
         
     def get_synopsis(self):
@@ -72,7 +72,7 @@ class Base:
         service_path = parsed.path
         endpoint = None
         basedir = ""
-        filename = "."
+        filename = None
         if ":" in service_path:
             service_path, file_path = service_path.split(":",1)
             if len(file_path)>0:
@@ -95,8 +95,8 @@ class Info(Base):
     def get_synopsis(self):
         return """Gets info about the remote server"""
 
-    def run(self):
-        super().run()
+    def run(self, args):
+        super().run(args)
         self.endpoint, _, _ = self.parse_url(self.args.authURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
@@ -138,8 +138,8 @@ class Auth(Base):
     def get_synopsis(self):
         return """Authenticate only, returning UFTP address and one-time password"""
 
-    def run(self):
-        super().run()
+    def run(self, args):
+        super().run(args)
         self.endpoint, base_dir, _ = self.parse_url(self.args.authURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")

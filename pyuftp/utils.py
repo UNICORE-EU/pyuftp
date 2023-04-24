@@ -6,7 +6,7 @@ from pyuftp.authenticate import authenticate
 
 import pyuftp.base, pyuftp.uftp
 
-import fnmatch, stat
+import fnmatch, os.path, stat
 
 class Ls(pyuftp.base.Base):
     
@@ -18,11 +18,13 @@ class Ls(pyuftp.base.Base):
     def get_synopsis(self):
         return """List a remote directory"""
 
-    def run(self):
-        super().run()
+    def run(self, args):
+        super().run(args)
         self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
+        if file_name is None:
+            file_name = "."
         self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
@@ -43,8 +45,8 @@ class Mkdir(pyuftp.base.Base):
     def get_synopsis(self):
         return """Create a remote directory"""
 
-    def run(self):
-        super().run()
+    def run(self, args):
+        super().run(args)
         self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
@@ -67,11 +69,13 @@ class Rm(pyuftp.base.Base):
     def get_synopsis(self):
         return """Remove a remote file/directory"""
 
-    def run(self):
-        super().run()
+    def run(self, args):
+        super().run(args)
         self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
+        if file_name is None:
+            file_name = "."
         self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
@@ -95,11 +99,13 @@ class Checksum(pyuftp.base.Base):
     def get_synopsis(self):
         return """Remove a remote file/directory"""
 
-    def run(self):
-        super().run()
+    def run(self, args):
+        super().run(args)
         self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
+        if file_name is None:
+            file_name = "."
         self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
@@ -123,8 +129,8 @@ class Find(pyuftp.base.Base):
     def get_synopsis(self):
         return """List all files in a remote directory"""
 
-    def run(self):
-        super().run()
+    def run(self, args):
+        super().run(args)
         self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
@@ -134,14 +140,19 @@ class Find(pyuftp.base.Base):
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
         uftp = pyuftp.uftp.UFTP()
         uftp.open_session(host, port, onetime_pwd)
+        if file_name is None:
+            file_name = "*"
         for entry in crawl_remote(uftp, ".", file_name, all=True):
-            print(entry)
+            print(os.path.normpath(base_dir+"/"+entry))
 
 
 def crawl_remote(uftp, base_dir, file_pattern = None, recurse=False, all=False):
     for x in uftp.listdir("."):
         if x.is_dir and all:
-            uftp.cwd(x.path)
+            try:
+                uftp.cwd(x.path)
+            except OSError:
+                continue
             for y in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all):
                 yield y
             uftp.cdup()

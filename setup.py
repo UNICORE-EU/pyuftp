@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 from setuptools import find_packages
 from setuptools import setup
-
-VERSION="0.0.1"
+import versioneer
 
 long_description = """
 UFTP commandline client
@@ -20,7 +19,8 @@ extras_require = {}
 
 setup(
     name="pyuftp",
-    version=VERSION,
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     packages=find_packages(),
     author="Bernd Schuller",
     author_email="b.schuller@fz-juelich.de",

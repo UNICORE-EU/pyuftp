@@ -1,10 +1,8 @@
 """ Main client class """
 
-import pyuftp.base, pyuftp.utils
+import pyuftp.base, pyuftp.utils, pyuftp._version
 
 import sys
-
-_VERSION_ = "0.0.1"
 
 _commands = {
             "authenticate": pyuftp.base.Auth(),
@@ -19,7 +17,7 @@ _commands = {
 def help():
     s = """PyUFTP commandline client for UFTP (UNICORE FTP) %s, https://www.unicore.eu
 Usage: pyuftp <command> [OPTIONS] <args>
-The following commands are available:""" % _VERSION_
+The following commands are available:""" % pyuftp._version.get_versions().get('version', "n/a")
     print(s)
     for cmd in _commands:
         print (f" {cmd:20} - {_commands[cmd].get_synopsis()}")
@@ -42,8 +40,8 @@ def main():
             break
     if command is None:
         raise ValueError(f"No such command: {cmd}")
-    command.run()
-    
+    command.run(sys.argv[2:])
+
 
 if __name__ == "__main__":
     main()

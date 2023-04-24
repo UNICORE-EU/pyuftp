@@ -1,9 +1,7 @@
 """
     Interacting with a UFTPD server (opening a session, listings, I/O, ...)
 """
-import os
-import stat
-from ftplib import FTP
+import ftplib, os, stat
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
 
@@ -17,7 +15,7 @@ class UFTP:
 
     def open_session(self, host, port, password):
         """open an FTP session at the given UFTP server"""
-        self.ftp = FTP()
+        self.ftp = ftplib.FTP()
         self.ftp.connect(host, port)
         self.ftp.login("anonymous", password)
 
@@ -31,19 +29,32 @@ class UFTP:
         return path
 
     def pwd(self):
-        return self.ftp.sendcmd("PWD")
+        try:
+            return self.ftp.sendcmd("PWD")
+        except ftplib.Error as e:
+            raise OSError(e)
 
     def cwd(self, path):
-        return self.ftp.sendcmd("CWD %s" % self.normalize(path))
+        try:
+            return self.ftp.sendcmd("CWD %s" % self.normalize(path))
+        except ftplib.Error as e:
+            raise OSError(e)
 
     def cdup(self):
-        return self.ftp.sendcmd("CDUP")
-    
+        try:
+            return self.ftp.sendcmd("CDUP")
+        except ftplib.Error as e:
+            raise OSError(e)
+
     def stat(self, path):
         """get os.stat() style info about a remote file/directory"""
         path = self.normalize(path)
-        self.ftp.putline("MLST %s" % path)
-        lines = self.ftp.getmultiline().split("\n")
+        try:
+            self.ftp.putline("MLST %s" % path)
+            lines = self.ftp.getmultiline().split("\n")
+        except ftplib.Error as e:
+            raise OSError(e)
+    
         if len(lines) != 3 or not lines[0].startswith("250"):
             raise OSError("File not found. Server reply: %s " % str(lines[0]))
         infos = lines[1].strip().split(" ")[0].split(";")
@@ -69,51 +80,72 @@ class UFTP:
     def listdir(self, directory, as_directory=True):
         """return a list of files in the given directory"""
         directory = self.normalize(directory)
-        mode = "N" if as_directory else "F"
-        self.ftp.putline(f"STAT {mode} {directory}")
-        listing = self.ftp.getmultiline().split("\n")
+        try:
+            mode = "N" if as_directory else "F"
+            self.ftp.putline(f"STAT {mode} {directory}")
+            listing = self.ftp.getmultiline().split("\n")
+        except ftplib.Error as e:
+            raise OSError(e)
         if not listing[0].startswith("211"):
             raise OSError(listing[0])
         return [ FileInfo(x) for x in listing[1:-1] ]
 
     def mkdir(self, directory):
         directory = self.normalize(directory)
-        self.ftp.voidcmd("MKD %s" % directory)
+        try:
+            self.ftp.voidcmd("MKD %s" % directory)
+        except ftplib.Error as e:
+            raise OSError(e)
 
     def rmdir(self, directory):
         directory = self.normalize(directory)
-        self.ftp.voidcmd("RMD %s" % directory)
+        try:
+            self.ftp.voidcmd("RMD %s" % directory)
+        except ftplib.Error as e:
+            raise OSError(e)
 
     def rm(self, path):
         path = self.normalize(path)
-        self.ftp.voidcmd("DELE %s" % path)
+        try:
+            self.ftp.voidcmd("DELE %s" % path)
+        except ftplib.Error as e:
+            raise OSError(e)
 
     def rename(self, source, target):
         source = self.normalize(source)
         target = self.normalize(target)
-        reply = self.ftp.sendcmd("RNFR %s" % source)
-        if not reply.startswith("350"):
-            raise OSError("Could not rename: " % reply)
-        self.ftp.voidcmd("RNTO %s" % target)
+        try:
+            reply = self.ftp.sendcmd("RNFR %s" % source)
+            if not reply.startswith("350"):
+                raise OSError("Could not rename: " % reply)
+            self.ftp.voidcmd("RNTO %s" % target)
+        except ftplib.Error as e:
+            raise OSError(e)
 
     def set_time(self, mtime, path):
         path = self.normalize(path)
         stime = strftime("%Y%m%d%H%M%S", localtime(mtime))
-        reply = self.ftp.sendcmd(f"MFMT {stime} {path}")
-        if not reply.startswith("213"):
-            raise OSError("Could not set time: " % reply)
-    
+        try:
+            reply = self.ftp.sendcmd(f"MFMT {stime} {path}")
+            if not reply.startswith("213"):
+                raise OSError("Could not set time: " % reply)
+        except ftplib.Error as e:
+            raise OSError(e)
+
     def checksum(self, path, algo=None):
         """ get a checksum """
         path = self.normalize(path)
-        if algo:
-            reply = self.ftp.sendcmd("OPTS HASH %s" % algo)
-            if not reply.startswith("200"):
-                raise ValueError("No such algorithm: " % reply)
-        self.ftp.putline(f"HASH {path}")
-        reply = self.ftp.getmultiline().split("\n")
-        if not reply[0].startswith("213"):
-            raise OSError(reply[0])
+        try:
+            if algo:
+                reply = self.ftp.sendcmd("OPTS HASH %s" % algo)
+                if not reply.startswith("200"):
+                    raise ValueError("No such algorithm: " % reply)
+            self.ftp.putline(f"HASH {path}")
+            reply = self.ftp.getmultiline().split("\n")
+            if not reply[0].startswith("213"):
+                raise OSError(reply[0])
+        except ftplib.Error as e:
+            raise OSError(e)
         for x in reply:
             if x[3:4] == '-':
                 continue
@@ -126,14 +158,20 @@ class UFTP:
 
     def get_write_socket(self, path, offset):
         path = self.normalize(path)
-        reply = self.ftp.sendcmd(f"RANG {offset}")
-        if not reply.startswith("350"):
-            raise OSError("Error setting RANG: %s" % reply)
-        return self.ftp.transfercmd("STOR %s" % path)
+        try:
+            reply = self.ftp.sendcmd(f"RANG {offset}")
+            if not reply.startswith("350"):
+                raise OSError("Error setting RANG: %s" % reply)
+            return self.ftp.transfercmd("STOR %s" % path)
+        except ftplib.Error as e:
+            raise OSError(e)
 
     def get_read_socket(self, path, offset):
         path = self.normalize(path)
-        return self.ftp.transfercmd("RETR %s" % path, rest=offset)
+        try:
+            return self.ftp.transfercmd("RETR %s" % path, rest=offset)
+        except ftplib.Error as e:
+            raise OSError(e)
 
 
 class FileInfo:
