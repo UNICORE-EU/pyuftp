@@ -2,6 +2,7 @@
     Interacting with a UFTPD server (opening a session, listings, I/O, ...)
 """
 import ftplib, os, stat
+
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
 
@@ -12,6 +13,7 @@ class UFTP:
         self.ftp = None
         self.uid = os.getuid()
         self.gid = os.getgid()
+        self.buffer_size = 65536
 
     def open_session(self, host, port, password):
         """open an FTP session at the given UFTP server"""
@@ -173,7 +175,30 @@ class UFTP:
         except ftplib.Error as e:
             raise OSError(e)
 
-
+    def copy_data(self, source, target, num_bytes):
+        total = 0
+        start_time = int(time())
+        if num_bytes<0:
+            num_bytes = maxsize
+        while total<num_bytes:
+            length = min(self.buffer_size, num_bytes-total)
+            data = source.read(length)
+            if len(data)==0:
+                break
+            to_write = len(data)
+            write_offset = 0
+            while(to_write>0):
+                written = target.write(data[write_offset:])
+                if written is None:
+                    written = 0
+                write_offset += written
+                to_write -= written
+            total = total + len(data)
+        return total, int(time()) - start_time
+    
+    def finish_transfer(self):
+        self.ftp.voidresp()
+    
 class FileInfo:
     def __init__(self, ls_line = None):
         self.path = None

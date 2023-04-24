@@ -1,12 +1,13 @@
 """ Main client class """
 
-import pyuftp.base, pyuftp.utils, pyuftp._version
+import pyuftp.base, pyuftp.cp, pyuftp.utils, pyuftp._version
 
 import sys
 
 _commands = {
             "authenticate": pyuftp.base.Auth(),
             "checksum": pyuftp.utils.Checksum(),
+            "cp": pyuftp.cp.Copy(),
             "find": pyuftp.utils.Find(),
             "info": pyuftp.base.Info(),
             "ls": pyuftp.utils.Ls(),

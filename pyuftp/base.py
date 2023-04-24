@@ -1,7 +1,6 @@
 """ Base command class and a few general commands """
 
-from pyuftp.authenticate import create_credential
-from pyuftp.authenticate import get_json, authenticate
+from pyuftp.authenticate import create_credential, get_json, authenticate
 from urllib.parse import urlparse
 
 
@@ -15,7 +14,6 @@ class Base:
                                               description="A commandline client for UFTP (UNICORE FTP)")
         self.args = None
         self.verbose = False
-        self.endpoint = None
         self.credential = None
         self.add_base_args()
         self.add_command_args()#
@@ -37,7 +35,8 @@ class Base:
     def run(self, args):
         self.args = self.parser.parse_args(args)
         self.verbose = self.args.verbose
-        
+        self.create_credential()
+
     def get_synopsis(self):
         return "N/A"
 
@@ -97,11 +96,10 @@ class Info(Base):
 
     def run(self, args):
         super().run(args)
-        self.endpoint, _, _ = self.parse_url(self.args.authURL)
-        if self.endpoint is None:
+        endpoint, _, _ = self.parse_url(self.args.authURL)
+        if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        self.create_credential()
-        auth_url = self.endpoint.split("/rest/auth")[0]+"/rest/auth"
+        auth_url = endpoint.split("/rest/auth")[0]+"/rest/auth"
         not self.verbose or print(f"Connecting to {auth_url}")
         reply = get_json(auth_url, self.credential)
         if self.args.raw:
@@ -140,10 +138,9 @@ class Auth(Base):
 
     def run(self, args):
         super().run(args)
-        self.endpoint, base_dir, _ = self.parse_url(self.args.authURL)
-        if self.endpoint is None:
+        endpoint, base_dir, _ = self.parse_url(self.args.authURL)
+        if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        self.create_credential()
-        not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
-        host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
+        not self.verbose or print(f"Authenticating at {endpoint}, base dir: '{base_dir}'")
+        host, port, onetime_pwd = authenticate(endpoint, self.credential, base_dir)
         print(f"Connect to {host}:{port} password: {onetime_pwd}")

@@ -25,7 +25,6 @@ class Ls(pyuftp.base.Base):
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         if file_name is None:
             file_name = "."
-        self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
@@ -50,7 +49,6 @@ class Mkdir(pyuftp.base.Base):
         self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
@@ -76,7 +74,6 @@ class Rm(pyuftp.base.Base):
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         if file_name is None:
             file_name = "."
-        self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
@@ -106,7 +103,6 @@ class Checksum(pyuftp.base.Base):
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         if file_name is None:
             file_name = "."
-        self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
@@ -134,7 +130,6 @@ class Find(pyuftp.base.Base):
         self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if self.endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        self.create_credential()
         not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
         host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
@@ -159,6 +154,16 @@ def crawl_remote(uftp, base_dir, file_pattern = None, recurse=False, all=False):
         else:
             if file_pattern and not fnmatch.fnmatch(x.path, file_pattern):
                 continue
-            yield base_dir+"/"+x.path
-
-
+            if x.is_dir:
+                if recurse:
+                    try:
+                        uftp.cwd(x.path)
+                    except OSError:
+                        continue
+                    for y in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all):
+                        yield y
+                    uftp.cdup()
+                else:
+                    continue
+            else:
+                yield base_dir+"/"+x.path
