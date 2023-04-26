@@ -2,11 +2,9 @@
   Utility commands (ls, mkdir, ...) and helpers
 """
 
-from pyuftp.authenticate import authenticate
-
 import pyuftp.base, pyuftp.uftp
 
-import fnmatch, os.path, stat
+import fnmatch, os, os.path, stat
 
 class Ls(pyuftp.base.Base):
     
@@ -20,13 +18,12 @@ class Ls(pyuftp.base.Base):
 
     def run(self, args):
         super().run(args)
-        self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
-        if self.endpoint is None:
+        endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
+        if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         if file_name is None:
             file_name = "."
-        not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
-        host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
+        host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
         uftp = pyuftp.uftp.UFTP()
         uftp.open_session(host, port, onetime_pwd)
@@ -46,11 +43,10 @@ class Mkdir(pyuftp.base.Base):
 
     def run(self, args):
         super().run(args)
-        self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
-        if self.endpoint is None:
+        endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
+        if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
-        host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
+        host, port, onetime_pwd = authenticate(endpoint, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
         uftp = pyuftp.uftp.UFTP()
         uftp.open_session(host, port, onetime_pwd)
@@ -69,13 +65,12 @@ class Rm(pyuftp.base.Base):
 
     def run(self, args):
         super().run(args)
-        self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
-        if self.endpoint is None:
+        endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
+        if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         if file_name is None:
             file_name = "."
-        not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
-        host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
+        host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
         uftp = pyuftp.uftp.UFTP()
         uftp.open_session(host, port, onetime_pwd)
@@ -98,13 +93,12 @@ class Checksum(pyuftp.base.Base):
 
     def run(self, args):
         super().run(args)
-        self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
-        if self.endpoint is None:
+        endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
+        if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         if file_name is None:
             file_name = "."
-        not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
-        host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
+        host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
         uftp = pyuftp.uftp.UFTP()
         uftp.open_session(host, port, onetime_pwd)
@@ -127,23 +121,38 @@ class Find(pyuftp.base.Base):
 
     def run(self, args):
         super().run(args)
-        self.endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
-        if self.endpoint is None:
+        endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
+        if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        not self.verbose or print(f"Authenticating at {self.endpoint}, base dir: '{base_dir}'")
-        host, port, onetime_pwd = authenticate(self.endpoint, self.credential, base_dir)
+        host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
         uftp = pyuftp.uftp.UFTP()
         uftp.open_session(host, port, onetime_pwd)
-        if file_name is None:
-            file_name = "*"
-        for entry in crawl_remote(uftp, ".", file_name, all=True):
+        base = "."
+        pattern = "*"
+        if len(file_name)>0:
+            if uftp.is_dir(file_name):
+                base = file_name
+                uftp.cwd(base)
+            else:
+                pattern = file_name
+        if base_dir=="/":
+            # to clean-up the output since normpath does not collapse two leading '/'
+            base_dir = ""
+        for entry in crawl_remote(uftp, base, pattern, all=True):
             print(os.path.normpath(base_dir+"/"+entry))
 
+def is_wildcard(path):
+    return "*" in path or "?" in path
 
-def crawl_remote(uftp, base_dir, file_pattern = None, recurse=False, all=False):
+def crawl_remote(uftp, base_dir, file_pattern="*", recurse=False, all=False):
     for x in uftp.listdir("."):
-        if x.is_dir and all:
+        if not x.is_dir:
+            if not fnmatch.fnmatch(x.path, file_pattern):
+                continue
+            else:
+                yield base_dir+"/"+x.path
+        if all or (recurse and fnmatch.fnmatch(x.path, file_pattern)):
             try:
                 uftp.cwd(x.path)
             except OSError:
@@ -151,19 +160,16 @@ def crawl_remote(uftp, base_dir, file_pattern = None, recurse=False, all=False):
             for y in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all):
                 yield y
             uftp.cdup()
-        else:
-            if file_pattern and not fnmatch.fnmatch(x.path, file_pattern):
+
+def crawl_local(base_dir, file_pattern="*", recurse=False, all=False):
+    for x in os.listdir(base_dir):
+        if not os.path.isdir(base_dir+"/"+x):
+            if not fnmatch.fnmatch(x, file_pattern):
                 continue
-            if x.is_dir:
-                if recurse:
-                    try:
-                        uftp.cwd(x.path)
-                    except OSError:
-                        continue
-                    for y in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all):
-                        yield y
-                    uftp.cdup()
-                else:
-                    continue
             else:
-                yield base_dir+"/"+x.path
+                yield base_dir+"/"+x
+        if all or (recurse and fnmatch.fnmatch(x, file_pattern)):
+            for y in crawl_local(base_dir+"/"+x, file_pattern, recurse, all):
+                yield y
+
+

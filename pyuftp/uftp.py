@@ -56,7 +56,6 @@ class UFTP:
             lines = self.ftp.getmultiline().split("\n")
         except ftplib.Error as e:
             raise OSError(e)
-    
         if len(lines) != 3 or not lines[0].startswith("250"):
             raise OSError("File not found. Server reply: %s " % str(lines[0]))
         infos = lines[1].strip().split(" ")[0].split(";")
@@ -78,6 +77,14 @@ class UFTP:
         st["st_mtime"] = ttime
         st["st_atime"] = ttime
         return st
+    
+    def is_dir(self, path):
+        """ return True if path exists and is a directory """
+        path = self.normalize(path)
+        try:
+            return self.stat(path)['st_mode']&stat.S_IFDIR
+        except OSError:
+            return False
 
     def listdir(self, directory, as_directory=True):
         """return a list of files in the given directory"""
@@ -158,19 +165,22 @@ class UFTP:
         if self.ftp is not None:
             self.ftp.close()
 
-    def get_write_socket(self, path, offset):
+    def get_write_socket(self, path, offset=0, length=-1):
         path = self.normalize(path)
         try:
-            reply = self.ftp.sendcmd(f"RANG {offset}")
-            if not reply.startswith("350"):
-                raise OSError("Error setting RANG: %s" % reply)
+            if length>0:
+                # UFTPD can handle RANG with no ALLO
+                self.ftp.sendcmd(f"RANG {offset} {offset+length}")
             return self.ftp.transfercmd("STOR %s" % path)
         except ftplib.Error as e:
             raise OSError(e)
 
-    def get_read_socket(self, path, offset):
+    def get_read_socket(self, path, offset=0, length=-1):
         path = self.normalize(path)
         try:
+            if offset>0 or length>-1:
+                r = self._make_range(offset, length)
+                self.ftp.sendcmd(f"RANG {r}")
             return self.ftp.transfercmd("RETR %s" % path, rest=offset)
         except ftplib.Error as e:
             raise OSError(e)
@@ -194,6 +204,7 @@ class UFTP:
                 write_offset += written
                 to_write -= written
             total = total + len(data)
+        target.flush()
         return total, int(time()) - start_time
     
     def finish_transfer(self):

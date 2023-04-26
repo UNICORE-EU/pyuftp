@@ -1,0 +1,19 @@
+[tool.pytest.ini_options]
+addopts = "--cov=pyuftp --cov-report term-missing"
+
+[tool.black]
+line-length = 100
+
+[tool.flake8]
+max-line-length = 100
+ignore = [
+ "W503"
+]
+per-file-ignores = [
+    "__init__.py:F401,E501",
+]
+exclude = [
+    "versioneer.py",
+    "pyunicore/_version.py",
+    "setup.py",
+]

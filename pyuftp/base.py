@@ -1,10 +1,8 @@
 """ Base command class and a few general commands """
 
-from pyuftp.authenticate import create_credential, get_json, authenticate
+import pyuftp.authenticate
+import argparse, json, os, os.path, sys
 from urllib.parse import urlparse
-
-
-import argparse, json, os.path, sys
 
 class Base:
     """ Base command class with support for common commandline args """
@@ -16,7 +14,7 @@ class Base:
         self.verbose = False
         self.credential = None
         self.add_base_args()
-        self.add_command_args()#
+        self.add_command_args()
 
     def add_base_args(self):
         self.parser.add_argument("-v", "--verbose",
@@ -31,6 +29,17 @@ class Base:
 
     def add_command_args(self):
         pass
+
+    def authenticate(self, endpoint, base_dir):
+        """ authenticate
+        Args:
+           endpoint - UFTP auth URL
+           base_dir - requested session base directory
+        Returns:
+           a tuple  (host, port, onetime_password)
+        """
+        not self.verbose or print(f"Authenticating at {endpoint}, base dir: '{base_dir}'")
+        return pyuftp.authenticate.authenticate(endpoint, self.credential, base_dir)
 
     def run(self, args):
         self.args = self.parser.parse_args(args)
@@ -50,6 +59,10 @@ class Base:
                 username, password = self.args.user.split(":",1)
             else:
                 username = self.args.user
+        else:
+            username = os.getenv("UFTP_USER")
+            if not username:
+                username = os.getenv("USER")
         if self.args.password and password is None:
             import getpass
             if self.args.identity is not None:
@@ -57,7 +70,7 @@ class Base:
             else:
                 prompt = "Enter password: "
             password = getpass.getpass(prompt)
-        self.credential = create_credential(username, password, token, identity)
+        self.credential = pyuftp.authenticate.create_credential(username, password, token, identity)
         
     def parse_url(self, url):
         """ 
@@ -101,7 +114,7 @@ class Info(Base):
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         auth_url = endpoint.split("/rest/auth")[0]+"/rest/auth"
         not self.verbose or print(f"Connecting to {auth_url}")
-        reply = get_json(auth_url, self.credential)
+        reply = pyuftp.authenticate.get_json(auth_url, self.credential)
         if self.args.raw:
             print(json.dumps(reply, indent=2))
         else:
@@ -141,6 +154,5 @@ class Auth(Base):
         endpoint, base_dir, _ = self.parse_url(self.args.authURL)
         if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        not self.verbose or print(f"Authenticating at {endpoint}, base dir: '{base_dir}'")
-        host, port, onetime_pwd = authenticate(endpoint, self.credential, base_dir)
+        host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         print(f"Connect to {host}:{port} password: {onetime_pwd}")
