@@ -24,11 +24,10 @@ class Ls(pyuftp.base.Base):
         if file_name is None:
             file_name = "."
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
-        not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
-        uftp = pyuftp.uftp.UFTP()
-        uftp.open_session(host, port, onetime_pwd)
-        for entry in uftp.listdir(file_name):
-            print(entry)
+        self.verbose(f"Connecting to UFTPD {host}:{port}")
+        with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            for entry in uftp.listdir(file_name):
+                print(entry)
 
 
 class Mkdir(pyuftp.base.Base):
@@ -46,11 +45,10 @@ class Mkdir(pyuftp.base.Base):
         endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
-        host, port, onetime_pwd = authenticate(endpoint, base_dir)
-        not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
-        uftp = pyuftp.uftp.UFTP()
-        uftp.open_session(host, port, onetime_pwd)
-        uftp.mkdir(file_name)
+        host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
+        self.verbose(f"Connecting to UFTPD {host}:{port}")
+        with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            uftp.mkdir(file_name)
 
 
 class Rm(pyuftp.base.Base):
@@ -71,15 +69,13 @@ class Rm(pyuftp.base.Base):
         if file_name is None:
             file_name = "."
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
-        not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
-        uftp = pyuftp.uftp.UFTP()
-        uftp.open_session(host, port, onetime_pwd)
-        st = uftp.stat(file_name)
-        if st['st_mode']&stat.S_IFDIR:
-            uftp.rmdir(file_name)
-        else:
-            uftp.rm(file_name)
-
+        self.verbose(f"Connecting to UFTPD {host}:{port}")
+        with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            st = uftp.stat(file_name)
+            if st['st_mode']&stat.S_IFDIR:
+                uftp.rmdir(file_name)
+            else:
+                uftp.rm(file_name)
 
 class Checksum(pyuftp.base.Base):
     
@@ -99,15 +95,14 @@ class Checksum(pyuftp.base.Base):
         if file_name is None:
             file_name = "."
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
-        not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
-        uftp = pyuftp.uftp.UFTP()
-        uftp.open_session(host, port, onetime_pwd)
-        st = uftp.stat(file_name)
-        if st['st_mode']&stat.S_IFREG:
-            _hash, _f = uftp.checksum(file_name, self.args.algorithm)
-            print(_hash, _f)
-        else:
-            raise ValueError(f"Not a regular file: {file_name}")
+        self.verbose(f"Connecting to UFTPD {host}:{port}")
+        with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            st = uftp.stat(file_name)
+            if st['st_mode']&stat.S_IFREG:
+                _hash, _f = uftp.checksum(file_name, self.args.algorithm)
+                print(_hash, _f)
+            else:
+                raise ValueError(f"Not a regular file: {file_name}")
 
 class Find(pyuftp.base.Base):
     
@@ -125,22 +120,34 @@ class Find(pyuftp.base.Base):
         if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
-        not self.verbose or print(f"Connecting to UFTPD {host}:{port}")
-        uftp = pyuftp.uftp.UFTP()
-        uftp.open_session(host, port, onetime_pwd)
-        base = "."
-        pattern = "*"
-        if len(file_name)>0:
-            if uftp.is_dir(file_name):
-                base = file_name
-                uftp.cwd(base)
-            else:
-                pattern = file_name
-        if base_dir=="/":
-            # to clean-up the output since normpath does not collapse two leading '/'
-            base_dir = ""
-        for entry in crawl_remote(uftp, base, pattern, all=True):
-            print(os.path.normpath(base_dir+"/"+entry))
+        self.verbose(f"Connecting to UFTPD {host}:{port}")
+        with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            base = "."
+            pattern = "*"
+            if len(file_name)>0:
+                if uftp.is_dir(file_name):
+                    base = file_name
+                    uftp.cwd(base)
+                else:
+                    pattern = file_name
+            if base_dir=="/":
+                # to clean-up the output since normpath does not collapse two leading '/'
+                base_dir = ""
+            for entry in crawl_remote(uftp, base, pattern, all=True):
+                print(os.path.normpath(base_dir+"/"+entry))
+
+
+_factors = {"k":1024, "m":1024*1024, "g":1024*1024*1024}
+
+def parse_value_with_units(value):
+    multiplier = value[-1].lower()
+    _factor = 1
+    if not multiplier in "0123456789":
+        _factor = _factors.get(multiplier)
+        if not _factor:
+            raise ValueError(f"Cannot parse '{value}'")
+        value = value[:-1]
+    return _factor * int(value)
 
 def is_wildcard(path):
     return "*" in path or "?" in path
@@ -171,5 +178,3 @@ def crawl_local(base_dir, file_pattern="*", recurse=False, all=False):
         if all or (recurse and fnmatch.fnmatch(x, file_pattern)):
             for y in crawl_local(base_dir+"/"+x, file_pattern, recurse, all):
                 yield y
-
-

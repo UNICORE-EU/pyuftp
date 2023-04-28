@@ -1,6 +1,9 @@
 [tool.pytest.ini_options]
 addopts = "--cov=pyuftp --cov-report term-missing"
 
+[tool.coverage.run]
+omit = ["pyuftp/_version.py", "pyuftp/__init__.py"]
+
 [tool.black]
 line-length = 100
 
@@ -14,6 +17,6 @@ per-file-ignores = [
 ]
 exclude = [
     "versioneer.py",
-    "pyunicore/_version.py",
+    "pyuftp/_version.py",
     "setup.py",
 ]

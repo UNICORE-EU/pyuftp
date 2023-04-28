@@ -5,7 +5,16 @@ import ftplib, os, stat
 
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
+from contextlib import contextmanager
 
+@contextmanager
+def open(host, port, password):
+    uftp = UFTP()
+    uftp.open_session(host, port, password)
+    try:
+        yield uftp
+    finally:
+        uftp.close()
 
 class UFTP:
 
@@ -20,7 +29,7 @@ class UFTP:
         self.ftp = ftplib.FTP()
         self.ftp.connect(host, port)
         self.ftp.login("anonymous", password)
-
+    
     __perms = {"r": stat.S_IRUSR, "w": stat.S_IWUSR, "x": stat.S_IXUSR}
     __type = {"file": stat.S_IFREG, "dir": stat.S_IFDIR}
 
@@ -29,12 +38,6 @@ class UFTP:
             if path.startswith("/"):
                 path = path[1:]
         return path
-
-    def pwd(self):
-        try:
-            return self.ftp.sendcmd("PWD")
-        except ftplib.Error as e:
-            raise OSError(e)
 
     def cwd(self, path):
         try:
@@ -120,17 +123,6 @@ class UFTP:
         except ftplib.Error as e:
             raise OSError(e)
 
-    def rename(self, source, target):
-        source = self.normalize(source)
-        target = self.normalize(target)
-        try:
-            reply = self.ftp.sendcmd("RNFR %s" % source)
-            if not reply.startswith("350"):
-                raise OSError("Could not rename: " % reply)
-            self.ftp.voidcmd("RNTO %s" % target)
-        except ftplib.Error as e:
-            raise OSError(e)
-
     def set_time(self, mtime, path):
         path = self.normalize(path)
         stime = strftime("%Y%m%d%H%M%S", localtime(mtime))
@@ -165,12 +157,15 @@ class UFTP:
         if self.ftp is not None:
             self.ftp.close()
 
+    def _send_range(self, offset, length, rfc=False):
+        end_byte = offset+length-1 if rfc else offset+length
+        self.ftp.sendcmd(f"RANG {offset} {end_byte}")
+
     def get_write_socket(self, path, offset=0, length=-1):
         path = self.normalize(path)
         try:
-            if length>0:
-                # UFTPD can handle RANG with no ALLO
-                self.ftp.sendcmd(f"RANG {offset} {offset+length}")
+            if offset>0 or length>-1:
+                self._send_range(offset, length)
             return self.ftp.transfercmd("STOR %s" % path)
         except ftplib.Error as e:
             raise OSError(e)
@@ -179,9 +174,8 @@ class UFTP:
         path = self.normalize(path)
         try:
             if offset>0 or length>-1:
-                r = self._make_range(offset, length)
-                self.ftp.sendcmd(f"RANG {r}")
-            return self.ftp.transfercmd("RETR %s" % path, rest=offset)
+                self._send_range(offset, length)
+            return self.ftp.transfercmd("RETR %s" % path)
         except ftplib.Error as e:
             raise OSError(e)
 

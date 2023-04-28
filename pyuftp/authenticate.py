@@ -68,17 +68,17 @@ class OIDCToken(Credential):
 
     Args:
         token: the value of the auth token
-        refresh_handler: optional refresh handler that provides a get_token() method which
-                         will be invoked to refresh the bearer token
+        refresh_token: optional function that can be called
+                       to get a fresh bearer token
     """
 
-    def __init__(self, token, refresh_handler=None):
+    def __init__(self, token, refresh_token=None):
         self.token = token
-        self.refresh_handler = refresh_handler
+        self.refresh_token = refresh_token
 
     def get_auth_header(self):
-        if self.refresh_handler is not None:
-            self.token = self.refresh_handler.get_token()
+        if self.refresh_token is not None:
+            self.token = self.refresh_token()
         return "Bearer " + self.token
 
     def __repr__(self):
@@ -139,26 +139,6 @@ class RefreshHandler:
         if not self.is_valid_token():
             self.refresh()
         return self.token
-
-
-class BasicToken(Credential):
-    """
-    Produces a header value "Basic <auth_token>"
-
-    Args:
-        token: the value of the auth token
-    """
-
-    def __init__(self, token):
-        self.token = token
-
-    def get_auth_header(self):
-        return "Basic " + self.token
-
-    def __repr__(self):
-        return f"HTTP_BASIC"
-
-    __str__ = __repr__
 
 
 class JWTToken(Credential):
@@ -232,12 +212,6 @@ def create_credential(username=None, password=None, token=None, identity=None):
         raise AuthenticationFailedException("Not enough info to create user credential")
     try:
         from cryptography.hazmat.primitives import serialization
-
-        if not isabs(identity):
-            if identity.startswith("~"):
-                identity = getenv("HOME") + "/" + identity.lstrip("~")
-            else:
-                identity = getenv("HOME") + "/.uftp/" + identity
         pem = open(identity).read()
         pem_bytes = bytes(pem, "UTF-8")
         if password is not None and len(password) > 0:
@@ -270,6 +244,13 @@ def authenticate(auth_url, credential, base_dir=""):
         "serverPath": base_dir,
     }
     params = post_json(auth_url, credential, req)
+    success = params['success']
+    if(str(success).lower()=="false"):
+        try:
+            msg = params['reason']
+            raise ValueError(msg)
+        except KeyError:
+            raise ValueError("Error authenticating. Reply: "+str(params))
     return params["serverHost"], params["serverPort"], params["secret"]
 
 def get_json(url, credential):

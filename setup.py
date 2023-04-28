@@ -12,7 +12,8 @@ python_requires = ">=3"
 install_requires = [
     "PyJWT>=2.0",
     "requests>=2.5",
-    "cryptography>=3.3.1"
+    "cryptography>=3.3.1",
+    "bcrypt>=4.0.0"
 ]
 
 extras_require = {}

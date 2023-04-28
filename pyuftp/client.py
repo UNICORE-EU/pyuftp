@@ -24,25 +24,25 @@ The following commands are available:""" % pyuftp._version.get_versions().get('v
         print (f" {cmd:20} - {_commands[cmd].get_synopsis()}")
     print("Enter 'pyuftp <command> -h' for help on a particular command.")
 
-def main():
+def main(args):
     """
     Main entry point
     """
     _help = ["help", "-h", "--help"]
 
-    if len(sys.argv)<2 or sys.argv[1] in _help:
+    if len(args)<1 or args[0] in _help:
         help()
-        sys.exit(0)
+        return
     command = None
-    cmd = sys.argv[1]
+    cmd = args[0]
     for k in _commands:
         if k.startswith(cmd):
             command = _commands[k]
             break
     if command is None:
         raise ValueError(f"No such command: {cmd}")
-    command.run(sys.argv[2:])
+    command.run(args[1:])
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
