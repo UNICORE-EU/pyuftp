@@ -15,6 +15,11 @@ _commands = {
             "rm": pyuftp.utils.Rm(),  
         }
 
+def show_version():
+    print("PyUFTP commandline client for UFTP (UNICORE FTP) "
+          "%s, https://www.unicore.eu" % pyuftp._version.get_versions().get('version', "n/a"))
+    print("Python %s" % sys.version)
+
 def help():
     s = """PyUFTP commandline client for UFTP (UNICORE FTP) %s, https://www.unicore.eu
 Usage: pyuftp <command> [OPTIONS] <args>
@@ -24,15 +29,20 @@ The following commands are available:""" % pyuftp._version.get_versions().get('v
         print (f" {cmd:20} - {_commands[cmd].get_synopsis()}")
     print("Enter 'pyuftp <command> -h' for help on a particular command.")
 
-def main(args):
-    """
-    Main entry point
-    """
+def run(args):
+
     _help = ["help", "-h", "--help"]
 
     if len(args)<1 or args[0] in _help:
         help()
         return
+
+    _version = ["version", "-V", "--version"]
+    
+    if args[0] in _version:
+        show_version()
+        return
+        
     command = None
     cmd = args[0]
     for k in _commands:
@@ -43,6 +53,11 @@ def main(args):
         raise ValueError(f"No such command: {cmd}")
     command.run(args[1:])
 
+def main():
+    """
+    Main entry point
+    """
+    run(sys.argv[1:])
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

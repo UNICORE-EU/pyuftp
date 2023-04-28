@@ -7,11 +7,11 @@ class TestBase(unittest.TestCase):
 
     def test_main(self):
         args = ["info", "-v", "-u", "demouser:test123", "https://localhost:9000/rest/auth"]
-        client.main(args)
+        client.run(args)
 
     def test_main_help(self):
         args = ["-h"]
-        client.main(args)
+        client.run(args)
 
     def test_info(self):
         info = client._commands.get("info")
