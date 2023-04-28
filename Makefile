@@ -4,23 +4,24 @@ export PYTHONPATH := .
 PYTHON = python3
 PYTEST = pytest
 
-test: runtest
-
-integration-test: runintegrationtest
+test: unit-test integration-test
 
 .PHONY: runtest $(TESTS) runintegrationtest $(INTEGRATIONTESTS)
 
-runtest: $(TESTS)
+unit-test: $(TESTS)
 
 $(TESTS):
 	@echo "\n** Running test $@"
 	@${PYTEST} $@
 
-runintegrationtest: $(INTEGRATIONTESTS)
+integration-test: $(INTEGRATIONTESTS)
 
 $(INTEGRATIONTESTS):
 	@echo "\n** Running integration test $@"
 	@${PYTHON} $@
+
+pytest:
+	@${PYTEST}
 
 clean:
 	@find -name "*~" -delete

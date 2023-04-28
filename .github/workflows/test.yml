@@ -34,7 +34,7 @@ jobs:
         pip install -r requirements-dev.txt
     - name: Run tests
       run: |
-        pytest
+        make pytest
     - name: Build
       run: |
         pip install .
