@@ -1,8 +1,8 @@
 """ Main client class """
 
-import pyuftp.base, pyuftp.cp, pyuftp.utils, pyuftp._version
+import pyuftp.base, pyuftp.cp, pyuftp.share, pyuftp.utils, pyuftp._version
 
-import sys
+import platform, sys
 
 _commands = {
             "authenticate": pyuftp.base.Auth(),
@@ -11,14 +11,17 @@ _commands = {
             "find": pyuftp.utils.Find(),
             "info": pyuftp.base.Info(),
             "ls": pyuftp.utils.Ls(),
-            "mkdir": pyuftp.utils.Mkdir(),  
-            "rm": pyuftp.utils.Rm(),  
+            "mkdir": pyuftp.utils.Mkdir(),
+            "rm": pyuftp.utils.Rm(),
+            "share": pyuftp.share.Share(),
         }
 
 def show_version():
     print("PyUFTP commandline client for UFTP (UNICORE FTP) "
           "%s, https://www.unicore.eu" % pyuftp._version.get_versions().get('version', "n/a"))
     print("Python %s" % sys.version)
+    print("OS: %s" % platform.platform())
+
 
 def help():
     s = """PyUFTP commandline client for UFTP (UNICORE FTP) %s, https://www.unicore.eu
@@ -30,19 +33,15 @@ The following commands are available:""" % pyuftp._version.get_versions().get('v
     print("Enter 'pyuftp <command> -h' for help on a particular command.")
 
 def run(args):
-
     _help = ["help", "-h", "--help"]
-
     if len(args)<1 or args[0] in _help:
         help()
         return
-
     _version = ["version", "-V", "--version"]
-    
     if args[0] in _version:
         show_version()
         return
-        
+
     command = None
     cmd = args[0]
     for k in _commands:

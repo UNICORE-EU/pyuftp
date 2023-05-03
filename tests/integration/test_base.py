@@ -4,7 +4,6 @@ from pyuftp import client
 
 class TestBase(unittest.TestCase):
 
-
     def test_main(self):
         args = ["info", "-v", "-u", "demouser:test123", "https://localhost:9000/rest/auth"]
         client.run(args)

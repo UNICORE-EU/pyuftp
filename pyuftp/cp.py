@@ -13,6 +13,8 @@ class Copy(pyuftp.base.Base):
         self.parser.add_argument("-r", "--recurse", required=False, action="store_true",
                             help="recurse into subdirectories, if applicable")
         self.parser.add_argument("-B", "--bytes", help="Byte range", required=False)
+        self.parser.add_argument("-a", "--archive", action="store_true", required=False,
+                                 help="Tell server to interpret data as tar/zip stream and unpack it")
         
     def get_synopsis(self):
         return """Copy file(s)"""
@@ -20,6 +22,7 @@ class Copy(pyuftp.base.Base):
     def run(self, args):
         super().run(args)
         self.init_range()
+        self.archive_mode = self.args.archive
         for s in self.args.source:
             self.verbose(f"Copy {s} --> {self.args.target}")
             endpoint, _, _ = self.parse_url(self.args.target)
@@ -91,6 +94,8 @@ class Copy(pyuftp.base.Base):
         uftp = pyuftp.uftp.UFTP()
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            if self.archive_mode:
+                uftp.set_archive_mode()
             if "-"==local:
                 offset, length = self._get_range()
                 writer = uftp.get_write_socket(remote_file_name, 0, length).makefile("wb")

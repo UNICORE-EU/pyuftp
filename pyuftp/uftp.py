@@ -133,6 +133,9 @@ class UFTP:
         except ftplib.Error as e:
             raise OSError(e)
 
+    def set_archive_mode(self):
+        self.ftp.sendcmd("TYPE ARCHIVE")
+
     def checksum(self, path, algo=None):
         """ get a checksum """
         path = self.normalize(path)

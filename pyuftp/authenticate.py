@@ -87,60 +87,6 @@ class OIDCToken(Credential):
     __str__ = __repr__
 
 
-class RefreshHandler:
-    """helper to refresh an OAuth token"""
-
-    def __init__(self, refresh_config, token=None):
-        """
-        token: initial access token (can be None)
-        refresh_config: a dict containing url, client_id, client_secret, refresh_token
-        """
-        self.refresh_config = refresh_config
-        self.token = token
-        if not token:
-            self.refresh()
-
-    def is_valid_token(self):
-        """
-        check if the given token is still valid
-        TODO check whether token was revoked
-        """
-        try:
-            jwt_decode(
-                self.token,
-                options={
-                    "verify_signature": False,
-                    "verify_nbf": False,
-                    "verify_exp": True,
-                    "verify_aud": False,
-                },
-            )
-            return True
-        except ExpiredSignatureError:
-            return False
-
-    def refresh(self):
-        """refresh the token"""
-        params = dict(
-            client_id=self.refresh_config["client_id"],
-            client_secret=self.refresh_config["client_secret"],
-            refresh_token=self.refresh_config["refresh_token"],
-            grant_type="refresh_token",
-        )
-        url = "%stoken" % self.refresh_config["url"]
-
-        res = requests.post(url, headers={"Accept": "application/json"}, data=params)
-        res.raise_for_status()
-        self.token = res.json()["access_token"]
-        return self.token
-
-    def get_token(self):
-        """get a valid access token. If necessary, refresh it."""
-        if not self.is_valid_token():
-            self.refresh()
-        return self.token
-
-
 class JWTToken(Credential):
     """
     Produces a signed JWT token ("Bearer <auth_token>")
@@ -192,6 +138,18 @@ class JWTToken(Credential):
 
     __str__ = __repr__
 
+class Anonymous(Credential):
+    """
+    Anonymous access - no auth header at all
+    """
+
+    def get_auth_header(self):
+        return None
+    
+    def __repr__(self):
+        return f"ANONYMOUS"
+
+    __str__ = __repr__
 
 def create_credential(username=None, password=None, token=None, identity=None):
     """Helper to create the most common types of credentials
@@ -207,7 +165,10 @@ def create_credential(username=None, password=None, token=None, identity=None):
     if token is not None:
         return OIDCToken(token)
     if token is None and identity is None:
-        return UsernamePassword(username, password)
+        if username=="anonymous":
+            return Anonymous()
+        else:
+            return UsernamePassword(username, password)
     if identity is None:
         raise AuthenticationFailedException("Not enough info to create user credential")
     try:
@@ -263,7 +224,7 @@ def get_json(url, credential):
         js = res.json()
     return js
 
-def post_json(url, credential, json_data):
+def post_json(url, credential, json_data, as_json = True):
     _headers = {
         "Authorization": credential.get_auth_header(),
         "Accept": "application/json",
@@ -271,9 +232,11 @@ def post_json(url, credential, json_data):
     }
     with requests.post(headers=_headers, url=url, json=json_data, verify=False) as res:
         check_error(res)
-        js = res.json()
-    return js
-
+        if res.status_code==201:
+            return res.headers['Location']
+        elif as_json:
+            return res.json()
+    
 def check_error(res):
     """checks for error and extracts any error info sent by the server"""
     if 400 <= res.status_code < 600:

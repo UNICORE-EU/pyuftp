@@ -7,11 +7,22 @@ class TestBasic(unittest.TestCase):
 
     def test_help(self):
         client.help()
+        client.show_version()
         for cmd in client._commands:
             print("\n*** %s *** " % cmd)
             print(client._commands[cmd].get_synopsis())
             client._commands[cmd].parser.print_usage()
             client._commands[cmd].parser.print_help()
+
+    def test_run_args(self):
+        client.run([])
+        client.run(["--version"])
+        client.run(["--help"])
+        try:
+            client.run(["no-such-cmd"])
+            self.fail()
+        except ValueError:
+            pass
 
     def test_username_cred(self):
         base = Base()
@@ -74,6 +85,14 @@ class TestBasic(unittest.TestCase):
         cred = base.credential
         self.assertEqual("JWT", str(cred))
         cred.get_auth_header()
+
+    def test_anonymous_cred(self):
+        base = Base()
+        args = ["-u", "anonymous"]
+        base.run(args)
+        cred = base.credential
+        self.assertEqual("ANONYMOUS", str(cred))
+        self.assertTrue(cred.get_auth_header() is None)
 
 if __name__ == '__main__':
     unittest.main()

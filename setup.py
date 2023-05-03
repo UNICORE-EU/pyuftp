@@ -3,33 +3,11 @@ from setuptools import find_packages
 from setuptools import setup
 import versioneer
 
-long_description = """
-UFTP (UNICORE FTP) commandline client
+from pathlib import Path
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
-UFTP (UNICORE File Transfer Protocol) is a high-performance data
-streaming library and file transfer tool with sharing capabilities.
-It allows to transfer data from client to server (and vice versa),
-as well as providing data staging and third-party transfer between
-UFTP-enabled UNICORE sites.
-
-PyUFTP is a commandline client providing a number of commands for
-interacting with a UFTP authentication server and with the UFTPD
-file server.
-
-Commands include
-
- authenticate    - Authenticate only, returning UFTPD address and one-time password
- checksum        - Compute hashes for remote file(s) (MD5, SHA-1, SHA-256, SHA-512)
- cp              - Download/upload file(s)
- find            - List all files in a remote directory
- info            - Gets info about the remote server
- ls              - List a remote directory
- mkdir           - Create a remote directory
- rm              - Remove a remote file/directory
-
-"""
-
-python_requires = ">=3"
+python_requires = ">=3.7"
 
 install_requires = [
     "PyJWT>=2.0",
@@ -49,6 +27,7 @@ setup(
     author_email="b.schuller@fz-juelich.de",
     description="UFTP (UNICORE FTP) commandline client",
     long_description=long_description,
+    long_description_content_type='text/markdown',
     python_requires=python_requires,
     install_requires=install_requires,
     extras_require=extras_require,

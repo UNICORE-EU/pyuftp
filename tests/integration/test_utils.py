@@ -32,6 +32,10 @@ class TestUtils(unittest.TestCase):
         args = ["-v", "-u", "demouser:test123",
                 "https://localhost:9000/rest/auth/TEST:"+f_name]
         find.run(args)
+        f_name = "/tmp"
+        args = ["-v", "-u", "demouser:test123",
+                "https://localhost:9000/rest/auth/TEST:"+f_name]
+        find.run(args)
 
 if __name__ == '__main__':
     unittest.main()
