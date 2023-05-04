@@ -20,7 +20,7 @@ class TestBase(unittest.TestCase):
     def test_auth(self):
         auth = client._commands.get("authenticate")
         args = ["-v", "-u", "demouser:test123", "https://localhost:9000/rest/auth/TEST:/tmp"]
-        ec = auth.run(args)
+        auth.run(args)
 
 if __name__ == '__main__':
     unittest.main()

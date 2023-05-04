@@ -19,6 +19,7 @@ Commands include
 * info          - Gets info about the remote server
 * ls            - List a remote directory
 * mkdir         - Create a remote directory
+* rcp           - Server-server copy
 * rm            - Remove a remote file/directory
 * share         - List, create, update and delete shares
 

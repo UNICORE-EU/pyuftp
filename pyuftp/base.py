@@ -170,3 +170,56 @@ class Auth(Base):
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         print(f"Connect to {host}:{port} password: {onetime_pwd}")
+        return host, port, onetime_pwd
+
+class CopyBase(Base):
+
+    def add_base_args(self):
+        Base.add_base_args(self)
+        self.parser.add_argument("-B", "--bytes", help="Byte range", required=False)
+
+    def run(self, args):
+        super().run(args)
+        self.init_range()
+
+    def init_range(self):
+        self.start_byte = 0
+        self.end_byte = -1
+        self.have_range = False
+        self.range_read_write = False
+        if self.args.bytes:
+            self.have_range = True
+            tok = self.args.bytes.split("-")
+            if len(tok[0])>0:
+                self.start_byte = pyuftp.utils.parse_value_with_units(tok[0])
+                self.end_byte = sys.maxsize
+            if len(tok[1])>0:
+                self.end_byte = pyuftp.utils.parse_value_with_units(tok[1])
+            if len(tok)>2:
+                self.range_read_write = tok[2]=="p"
+            self.verbose(f"Range {self.start_byte}-{self.end_byte} rw={self.range_read_write}")
+
+    def _get_range(self, default_length=-1):
+        offset = 0
+        length = default_length
+        if self.have_range:
+            offset = self.start_byte
+            length = self.end_byte - self.start_byte + 1
+        return offset, length
+
+    def log_usage(self, send, source, target, size, duration):
+        if not self.is_verbose:
+            return
+        if send:
+            operation = "Sent"
+        else:
+            operation = "Received"
+        rate = 0.001*float(size)/(float(duration)+1)
+        if rate<1000:
+            unit = "kB/sec"
+            rate = int(rate)
+        else:
+            unit = "MB/sec"
+            rate = int(rate / 1000)
+        msg = "USAGE [%s] %s-->%s [%s bytes] [%s %s]" % (operation, source, target, size, rate, unit)
+        print(msg)

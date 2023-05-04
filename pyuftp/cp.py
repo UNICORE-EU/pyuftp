@@ -3,7 +3,7 @@
 import pyuftp.base, pyuftp.uftp, pyuftp.utils
 import os.path, sys
 
-class Copy(pyuftp.base.Base):
+class Copy(pyuftp.base.CopyBase):
     
     def add_command_args(self):
         self.parser.prog = "pyuftp cp"
@@ -12,7 +12,6 @@ class Copy(pyuftp.base.Base):
         self.parser.add_argument("target", help="Target")
         self.parser.add_argument("-r", "--recurse", required=False, action="store_true",
                             help="recurse into subdirectories, if applicable")
-        self.parser.add_argument("-B", "--bytes", help="Byte range", required=False)
         self.parser.add_argument("-a", "--archive", action="store_true", required=False,
                                  help="Tell server to interpret data as tar/zip stream and unpack it")
         
@@ -30,31 +29,6 @@ class Copy(pyuftp.base.Base):
                 self.do_download(s, self.args.target)
             else:
                 self.do_upload(s, self.args.target)
-    
-    def init_range(self):
-        self.start_byte = 0
-        self.end_byte = -1
-        self.have_range = False
-        self.range_read_write = False
-        if self.args.bytes:
-            self.have_range = True
-            tok = self.args.bytes.split("-")
-            if len(tok[0])>0:
-                self.start_byte = pyuftp.utils.parse_value_with_units(tok[0])
-                self.end_byte = sys.maxsize
-            if len(tok[1])>0:
-                self.end_byte = pyuftp.utils.parse_value_with_units(tok[1])
-            if len(tok)>2:
-                self.range_read_write = tok[2]=="p"
-            self.verbose(f"Range {self.start_byte}-{self.end_byte} rw={self.range_read_write}")
-        
-    def _get_range(self, default_length=-1):
-        offset = 0
-        length = default_length
-        if self.have_range:
-            offset = self.start_byte
-            length = self.end_byte - self.start_byte + 1
-        return offset, length
 
     def do_download(self, remote, local):
         """ download a source (which can specify wildcards) """
@@ -74,7 +48,7 @@ class Copy(pyuftp.base.Base):
                 elif os.path.isdir(local):
                     target = os.path.normpath(local+"/"+item)
                     local_dir = os.path.dirname(target)
-                    if not os.path.isdir(local_dir):
+                    if len(local_dir)>0 and not os.path.isdir(local_dir):
                         os.makedirs(local_dir, mode=0o755, exist_ok=True)
                 else:
                     target = local
@@ -91,7 +65,6 @@ class Copy(pyuftp.base.Base):
     def do_upload(self, local, remote):
         """ upload local source (which can specify wildcards) to a remote location """
         endpoint, base_dir, remote_file_name  = self.parse_url(remote)
-        uftp = pyuftp.uftp.UFTP()
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
             if self.archive_mode:
@@ -129,20 +102,45 @@ class Copy(pyuftp.base.Base):
                     writer.close()
                     uftp.finish_transfer()
 
-    def log_usage(self, send, source, target, size, duration):
-        if not self.is_verbose:
-            return
-        if send:
-            operation = "Sent"
-        else:
-            operation = "Received"
-        rate = 0.001*float(size)/(float(duration)+1)
-        if rate<1000:
-            unit = "kB/sec"
-            rate = int(rate)
-        else:
-            unit = "MB/sec"
-            rate = int(rate / 1000)
-        msg = "USAGE [%s] %s-->%s [%s bytes] [%s %s]" % (operation, source, target, size, rate, unit)
-        print(msg)
-        
+class RemoteCopy(pyuftp.base.CopyBase):
+
+    def add_command_args(self):
+        self.parser.prog = "pyuftp rcp"
+        self.parser.description = self.get_synopsis()
+        self.parser.add_argument("source", nargs="+", help="Source(s)")
+        self.parser.add_argument("target", help="Target")
+        self.parser.add_argument("-s", "--server",
+                                 help="UFTPD server address in the form host:port")
+        self.parser.add_argument("-p", "--one-time-password",
+                                 help="The one-time password for the source side")
+
+    def get_synopsis(self):
+        return """Launch server-server copy"""
+
+    def run(self, args):
+        super().run(args)
+        remote_target = self.args.target.lower().startswith("http")
+        for s in self.args.source:
+            remote_source = s.lower().startswith("http")
+            if not (remote_source or remote_target):
+                raise ValueError(f"Cannot copy {s} -> {self.args.target}, at least one must be a URL")
+            if not (remote_source and remote_target):
+                if self.args.server is None or self.args.one_time_password is None:
+                    raise ValueError("Arguments --server and --one-time-password are required")
+            self.verbose(f"Remote copy {s} --> {self.args.target}")
+            if remote_source:
+                s_endpoint, s_base_dir, s_filename = self.parse_url(s)
+                s_host, s_port, s_password = self.authenticate(s_endpoint, s_base_dir)
+                s_server = f"{s_host}:{s_port}"
+            else:
+                s_server = self.args.server
+                s_password = self.args.one_time_password
+                s_filename = s
+            offset, length = self._get_range()
+            t_endpoint, t_base_dir, t_filename  = self.parse_url(self.args.target)
+            t_host, t_port, t_password = self.authenticate(t_endpoint, t_base_dir)
+            with pyuftp.uftp.open(t_host, t_port, t_password) as uftp:
+                if offset>0 or length>-1:
+                    uftp._send_range(offset, length)
+                reply = uftp.receive_file(t_filename, s_filename, s_server, s_password)
+                self.verbose(reply)

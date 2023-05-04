@@ -12,6 +12,7 @@ _commands = {
             "info": pyuftp.base.Info(),
             "ls": pyuftp.utils.Ls(),
             "mkdir": pyuftp.utils.Mkdir(),
+            "rcp": pyuftp.cp.RemoteCopy(),
             "rm": pyuftp.utils.Rm(),
             "share": pyuftp.share.Share(),
         }

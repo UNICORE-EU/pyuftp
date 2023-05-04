@@ -203,7 +203,11 @@ class UFTP:
             total = total + len(data)
         target.flush()
         return total, int(time()) - start_time
-    
+
+    def receive_file(self, local_file, remote_file, server, password):
+        cmd = f"RECEIVE-FILE '{local_file}' '{remote_file}' '{server}' '{password}'"
+        return self.ftp.sendcmd(cmd)
+
     def finish_transfer(self):
         self.ftp.voidresp()
     

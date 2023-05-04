@@ -97,12 +97,10 @@ class Checksum(pyuftp.base.Base):
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
-            st = uftp.stat(file_name)
-            if st['st_mode']&stat.S_IFREG:
-                _hash, _f = uftp.checksum(file_name, self.args.algorithm)
+            for entry in crawl_remote(uftp, base_dir, file_name):
+                entry = os.path.relpath(entry, base_dir)
+                _hash, _f = uftp.checksum(entry, self.args.algorithm)
                 print(_hash, _f)
-            else:
-                raise ValueError(f"Not a regular file: {file_name}")
 
 class Find(pyuftp.base.Base):
     
