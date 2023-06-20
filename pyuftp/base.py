@@ -1,7 +1,7 @@
 """ Base command class and a few general commands """
 
 import pyuftp.authenticate
-import argparse, getpass, json, os, os.path, sys
+import argparse, getpass, json, os, os.path, sys, threading
 from urllib.parse import urlparse
 
 class Base:
@@ -221,5 +221,4 @@ class CopyBase(Base):
         else:
             unit = "MB/sec"
             rate = int(rate / 1000)
-        msg = "USAGE [%s] %s-->%s [%s bytes] [%s %s]" % (operation, source, target, size, rate, unit)
-        print(msg)
+        print(f"USAGE [{threading.current_thread().name}] [{operation}] {source}-->{target} [{size} bytes] [{rate} {unit}]")

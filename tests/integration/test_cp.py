@@ -4,17 +4,16 @@ from pyuftp import client
 
 class TestCP(unittest.TestCase):
 
-    def test_cp_upload_1(self):
+    def test_cp_upload_download_1(self):
         cp = client._commands.get("cp")
         args = ["-v", "-u", "demouser:test123",
                 "./Makefile",
                 "https://localhost:9000/rest/auth/TEST:/tmp/"]
         cp.run(args)
 
-    def test_cp_download_1(self):
         cp = client._commands.get("cp")
         args = ["-v", "-u", "demouser:test123",
-                "https://localhost:9000/rest/auth/TEST:/opt/unicore/unicore-authserver/LAST_PID",
+                "https://localhost:9000/rest/auth/TEST:/tmp/Makefile",
                 "/tmp/x"
                 ]
         cp.run(args)
@@ -28,21 +27,25 @@ class TestCP(unittest.TestCase):
         cp.run(args)
 
     def test_cp_download_multiple(self):
+        for i in [1,2,3]:
+            with open("/tmp/test%s.txt" % str(i), "wb") as f:
+                f.write(b"test123\n")
         cp = client._commands.get("cp")
         args = ["-v", "-u", "demouser:test123",
-                "https://localhost:9000/rest/auth/TEST:/opt/unicore/unicore-authserver/logs/*",
+                "https://localhost:9000/rest/auth/TEST:/tmp/*.txt",
                 "/dev/null"
                 ]
         cp.run(args)
 
-    def test_cp_download_multiple_2(self):
-       with tempfile.TemporaryDirectory() as d:
+        with tempfile.TemporaryDirectory() as d:
             cp = client._commands.get("cp")
             args = ["-v", "-u", "demouser:test123",
-                "https://localhost:9000/rest/auth/TEST:/opt/unicore/unicore-authserver/logs/*",
-                d
-                ]
+                    "-n", "2",
+                    "https://localhost:9000/rest/auth/TEST:/tmp/*.txt",
+                    d
+                    ]
             cp.run(args)
+
 
     def test_cp_download_range(self):
         cp = client._commands.get("cp")
@@ -53,9 +56,11 @@ class TestCP(unittest.TestCase):
         cp.run(args)
 
     def test_cp_download_stdout(self):
+        with open("/tmp/test1.txt", "wb") as f:
+                f.write(b"test123\n")
         cp = client._commands.get("cp")
         args = ["-v", "-u", "demouser:test123",
-                "https://localhost:9000/rest/auth/TEST:/opt/unicore/unicore-authserver/LAST_PID",
+                "https://localhost:9000/rest/auth/TEST:/tmp/test1.txt",
                 "-"
                 ]
         cp.run(args)

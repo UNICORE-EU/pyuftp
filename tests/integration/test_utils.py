@@ -19,8 +19,10 @@ class TestUtils(unittest.TestCase):
         rm.run(args)
 
     def test_checksum(self):
+        f_name = "/tmp/test1.txt"
+        with open(f_name, "wb") as f:
+            f.write(b"test123\n")
         checksum = client._commands.get("checksum")
-        f_name = "/opt/unicore/unicore-authserver/LAST_PID"
         for algo in ["MD5", "SHA-1", "SHA-256", "SHA-512"]:
             args = ["-v", "-u", "demouser:test123", "-a", algo,
                 "https://localhost:9000/rest/auth/TEST:"+f_name]
