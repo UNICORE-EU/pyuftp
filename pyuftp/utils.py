@@ -97,7 +97,7 @@ class Checksum(pyuftp.base.Base):
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
-            for entry in crawl_remote(uftp, base_dir, file_name):
+            for (entry, _) in crawl_remote(uftp, base_dir, file_name):
                 entry = os.path.relpath(entry, base_dir)
                 _hash, _f = uftp.checksum(entry, self.args.algorithm)
                 print(_hash, _f)
@@ -131,7 +131,7 @@ class Find(pyuftp.base.Base):
             if base_dir=="/":
                 # to clean-up the output since normpath does not collapse two leading '/'
                 base_dir = ""
-            for entry in crawl_remote(uftp, base, pattern, all=True):
+            for (entry, _) in crawl_remote(uftp, base, pattern, all=True):
                 print(os.path.normpath(base_dir+"/"+entry))
 
 
@@ -151,19 +151,20 @@ def is_wildcard(path):
     return "*" in path or "?" in path
 
 def crawl_remote(uftp, base_dir, file_pattern="*", recurse=False, all=False):
+    """ returns tuples (name, size) """
     for x in uftp.listdir("."):
         if not x.is_dir:
             if not fnmatch.fnmatch(x.path, file_pattern):
                 continue
             else:
-                yield base_dir+"/"+x.path
+                yield base_dir+"/"+x.path, x.size
         if all or (recurse and fnmatch.fnmatch(x.path, file_pattern)):
             try:
                 uftp.cwd(x.path)
             except OSError:
                 continue
-            for y in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all):
-                yield y
+            for y, size in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all):
+                yield y, size
             uftp.cdup()
 
 def crawl_local(base_dir, file_pattern="*", recurse=False, all=False):
