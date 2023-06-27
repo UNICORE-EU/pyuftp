@@ -47,10 +47,17 @@ class Copy(pyuftp.base.CopyBase):
         if self.number_of_threads>1:
             self.executor.shutdown(wait=True, cancel_futures=False)
 
-    def check_download_exists(self, target, size):
+    def check_download_exists(self, target):
         if not os.path.exists(target):
             return False, -1
         return True, os.stat(target).st_size, 
+
+    def check_upload_exists(self, uftp, target):
+        try:
+            info = uftp.stat(target)
+            return True, info["st_size"]
+        except OSError:
+            return False, -1
 
     def do_download(self, remote, local):
         """ download a source (which can specify wildcards) """
@@ -71,7 +78,7 @@ class Copy(pyuftp.base.CopyBase):
                 else:
                     target = local
                 if self.resume:
-                    exists, size = self.check_download_exists(target, remote_size)
+                    exists, size = self.check_download_exists(target)
                     if exists:
                         if size==remote_size:
                             self.verbose(f"'{target}': skipping.")
@@ -120,7 +127,18 @@ class Copy(pyuftp.base.CopyBase):
                         target = remote_file_name
                     if target.startswith("/"):
                         target = target[1:]
-                    offset, length = self._get_range(os.stat(item).st_size)
+                    local_size = os.stat(item).st_size
+                    offset, length = self._get_range(local_size)
+                    if self.resume:
+                        exists, remote_size = self.check_upload_exists(uftp, target)
+                        if exists:
+                            if local_size==remote_size:
+                                self.verbose(f"'{target}': skipping.")
+                                continue
+                            else:
+                                self.verbose(f"'{target}': resuming at {remote_size}.")
+                                offset = remote_size
+                                length = local_size - offset
                     if self.number_of_threads==1:
                         worker = Worker(self, uftp=uftp)
                         worker.upload(endpoint, base_dir, item, target, offset, length)
@@ -166,8 +184,10 @@ class Worker():
 
     def upload(self, endpoint, base_dir, item, target, offset, length):
         self.setup(endpoint, base_dir)
-        writer = self.uftp.get_write_socket(target, 0, length).makefile("wb")
+        writer = self.uftp.get_write_socket(target, offset, length).makefile("wb")
         with open(item, "rb") as f:
+            if offset>0:
+                f.seek(offset)
             total, duration = self.uftp.copy_data(f, writer, length)
         self.base.log_usage(True, item, target, total, duration)
         writer.close()
