@@ -1,8 +1,9 @@
 Changelog for the PyUFTP client
 ===============================
 
-Issue tracker: https://sourceforge.net/p/unicore/issues
+Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
-Version 0.1.0
+Version 0.5.0
 -------------
  - first version
+
