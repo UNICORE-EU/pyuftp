@@ -19,14 +19,21 @@ class TestUtils(unittest.TestCase):
         rm.run(args)
 
     def test_checksum(self):
-        f_name = "/tmp/test1.txt"
-        with open(f_name, "wb") as f:
+        f1 = "/tmp/test1.txt"
+        f2 = "/tmp/test-uploaded.txt"
+        with open(f1, "wb") as f:
             f.write(b"test123\n")
+        cp = client._commands.get("cp")
+        args = ["-v", "-u", "demouser:test123",
+                f1,
+                "https://localhost:9000/rest/auth/TEST:"+f2]
+        cp.run(args)
+        
         checksum = client._commands.get("checksum")
         for algo in ["MD5", "SHA-1", "SHA-256", "SHA-512"]:
             args = ["-v", "-u", "demouser:test123", "-a", algo,
-                "https://localhost:9000/rest/auth/TEST:"+f_name]
-            checksum.run(args)
+                "https://localhost:9000/rest/auth/TEST:"+f2]
+            print(f"{algo} : {checksum.run(args)}")
 
     def test_find(self):
         find = client._commands.get("find")

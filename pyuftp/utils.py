@@ -96,11 +96,13 @@ class Checksum(pyuftp.base.Base):
             file_name = "."
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
+        _hash = ""
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
             for (entry, _) in crawl_remote(uftp, base_dir, file_name):
                 entry = os.path.relpath(entry, base_dir)
                 _hash, _f = uftp.checksum(entry, self.args.algorithm)
                 print(_hash, _f)
+            return _hash
 
 class Find(pyuftp.base.Base):
     
