@@ -20,7 +20,7 @@ class TestCP(unittest.TestCase):
             f.write(b"line 1\n")
             f.write(b"line 2\n")
         self._upload(original, tempfile1)
-        part_length = int(os.stat(tempfile1).st_size / 2)
+        part_length = 7
         cp = client._commands.get("cp")
         args = ["-v", "-u", "demouser:test123",
                 f"-B0-{part_length-1}-p",
@@ -68,7 +68,7 @@ class TestCP(unittest.TestCase):
             f.write(b"line 1\n")
             f.write(b"line 2\n")
         self._upload(original, tempfile1)
-        part_length = int(os.stat(tempfile1).st_size / 2)
+        part_length = 7
         cp = client._commands.get("cp")
         args = ["-v", "-u", "demouser:test123",
                 f"-B{part_length}-{2*part_length}-p",
