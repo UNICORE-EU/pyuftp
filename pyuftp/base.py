@@ -25,7 +25,7 @@ class Base:
                             required=False,
                             action="store_true",
                             help="be verbose")
-        self.parser.add_argument("-t", "--token", help="authentication: token")
+        self.parser.add_argument("-t", "--token", help="authentication: bearer token")
         self.parser.add_argument("-u", "--user", help="authentication: username[:password]")
         self.parser.add_argument("-P", "--password", action="store_true",
                             help="interactively query for password")
@@ -176,7 +176,7 @@ class CopyBase(Base):
 
     def add_base_args(self):
         Base.add_base_args(self)
-        self.parser.add_argument("-B", "--bytes", help="Byte range", required=False)
+        self.parser.add_argument("-B", "--bytes", help="Byte range: range_spec", required=False)
 
     def run(self, args):
         super().run(args)
@@ -195,8 +195,7 @@ class CopyBase(Base):
                 self.end_byte = sys.maxsize
             if len(tok[1])>0:
                 self.end_byte = pyuftp.utils.parse_value_with_units(tok[1])
-            if len(tok)>2:
-                self.range_read_write = tok[2]=="p"
+            self.range_read_write = len(tok)>2 and tok[2]=="p"
             self.verbose(f"Range {self.start_byte}-{self.end_byte} rw={self.range_read_write}")
 
     def _get_range(self, default_length=-1):
