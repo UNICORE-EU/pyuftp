@@ -116,7 +116,8 @@ class Info(Base):
         self.parser.prog = "pyuftp info"
         self.parser.description = self.get_synopsis()
         self.parser.add_argument("authURL", help="Auth server URL")
-        self.parser.add_argument("-R", "--raw", help="print the JSON response from the server")
+        self.parser.add_argument("-R", "--raw", action="store_true",
+                                 help="print the JSON response from the server")
 
     def get_synopsis(self):
         return """Gets info about the remote server"""
@@ -150,8 +151,25 @@ class Info(Base):
                 sharing = "enabled"
             else:
                 sharing = "disabled"
+            rate_limit = server.get('rateLimit', 0)
+            if rate_limit > 0:
+                rate_limit = self.human_readable(rate_limit)
+                print(f"  Rate limit:       {rate_limit}/sec")
+            reservations = server.get("reservations", [])
+            if len(reservations)>0:
+                print(f"  Rate limit:")
+                for r in reservations:
+                    print(f"    * {r}")
             print(f"  Sharing support:  {sharing}")
             print(f"  Server status:    {server.get('status', 'N/A')}")
+
+
+    def human_readable(self, value, decimals=0):
+        for unit in ['B', 'KB', 'MB', 'GB' ]:
+            if value < 1024.0 or unit == 'GB':
+                break
+            value /= 1024.0
+        return f"{value:.{decimals}f} {unit}"
 
 class Auth(Base):
 
