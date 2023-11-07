@@ -15,11 +15,11 @@ jobs:
 
     services:
       unicore:
-        image: ghcr.io/unicore-eu/uftp-testing-all:3.2.0
+        image: ghcr.io/unicore-eu/uftp-testing-all:3.3.0
         ports:
           - 9000:9000
           - 64434:64434
-          - 50000-50010:50000-50010
+          - 50000-50050:50000-50050
 
     steps:
     - uses: actions/checkout@v3
