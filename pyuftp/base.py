@@ -25,7 +25,7 @@ class Base:
                             required=False,
                             action="store_true",
                             help="be verbose")
-        self.parser.add_argument("-t", "--token", help="authentication: bearer token")
+        self.parser.add_argument("-A", "--auth-token", help="bearer token value")
         self.parser.add_argument("-u", "--user", help="authentication: username[:password]")
         self.parser.add_argument("-P", "--password", action="store_true",
                             help="interactively query for password")
@@ -57,7 +57,7 @@ class Base:
         username = None
         password = None
         identity = self.args.identity
-        token  = self.args.token
+        token  = self.args.auth_token
         if self.args.user:
             if ":" in self.args.user:
                 username, password = self.args.user.split(":",1)
@@ -155,9 +155,12 @@ class Info(Base):
             if rate_limit > 0:
                 rate_limit = self.human_readable(rate_limit)
                 print(f"  Rate limit:       {rate_limit}/sec")
+            session_limit = server.get('sessionLimit', 0)
+            if session_limit > 0:
+                print(f"  Session limit:    {session_limit}")
             reservations = server.get("reservations", [])
             if len(reservations)>0:
-                print(f"  Rate limit:")
+                print(f"  Reservations:")
                 for r in reservations:
                     print(f"    * {r}")
             print(f"  Sharing support:  {sharing}")

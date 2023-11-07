@@ -16,8 +16,8 @@ class Copy(pyuftp.base.CopyBase):
                                  help="recurse into subdirectories, if applicable")
         self.parser.add_argument("-a", "--archive", action="store_true", required=False,
                                  help="Tell server to interpret data as tar/zip stream and unpack it")
-        self.parser.add_argument("-n", "--number-of-threads", required=False, type=int, default=1,
-                                 help="Maximum number of parallel UFTP sessions to use")
+        self.parser.add_argument("-t", "--threads", required=False, type=int, default=1,
+                                 help="Maximum number of client threads / parallel UFTP sessions to use")
         self.parser.add_argument("-R", "--resume", required=False, action="store_true",
                                  help="Check existing target file(s) and try to resume")
 
