@@ -50,7 +50,7 @@ class TestBasic(unittest.TestCase):
 
     def test_token_cred(self):
         base = Base()
-        args = ["-v", "-t", "some_token_value"]
+        args = ["-v", "-A", "some_token_value"]
         base.run(args)
         self.assertTrue(base.is_verbose)
         cred = base.credential

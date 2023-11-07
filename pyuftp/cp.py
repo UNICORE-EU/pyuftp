@@ -28,7 +28,7 @@ class Copy(pyuftp.base.CopyBase):
         super().run(args)
         self.init_range()
         self.archive_mode = self.args.archive
-        self.number_of_threads = self.args.number_of_threads
+        self.number_of_threads = self.args.threads
         self.verbose(f"Number of threads = {self.number_of_threads}")
         self.resume = self.args.resume and not self.args.target=="-"
         self.verbose(f"Resume mode = {self.resume}")

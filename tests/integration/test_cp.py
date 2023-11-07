@@ -40,7 +40,7 @@ class TestCP(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             cp = client._commands.get("cp")
             args = ["-v", "-u", "demouser:test123",
-                "-n", "2",
+                "-t", "2",
                 f"https://localhost:9000/rest/auth/TEST:{tempdir}/*.txt",
                 d ]
             cp.run(args)
