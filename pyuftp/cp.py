@@ -3,7 +3,7 @@
 import pyuftp.base, pyuftp.uftp, pyuftp.utils
 import os.path, pathlib, sys
 import threading
-import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
     
 class Copy(pyuftp.base.CopyBase):
     
@@ -20,6 +20,8 @@ class Copy(pyuftp.base.CopyBase):
                                  help="Maximum number of client threads / parallel UFTP sessions to use")
         self.parser.add_argument("-R", "--resume", required=False, action="store_true",
                                  help="Check existing target file(s) and try to resume")
+        self.parser.add_argument("-D", "--show-performance", required=False, action="store_true",
+                                 help="Show detailed transfer rates during the transfer")
 
     def get_synopsis(self):
         return """Copy file(s)"""
@@ -32,10 +34,16 @@ class Copy(pyuftp.base.CopyBase):
         self.verbose(f"Number of threads = {self.number_of_threads}")
         self.resume = self.args.resume and not self.args.target=="-"
         self.verbose(f"Resume mode = {self.resume}")
+        self.show_performance = self.args.show_performance
+        self.verbose(f"Performance display = {self.show_performance}")
+        if self.show_performance:
+            self.performance_display = pyuftp.uftp.PerformanceDisplay(self.number_of_threads)
+        else:
+            self.performance_display = None
         if self.number_of_threads>1:
             self.thread_storage = threading.local()
-            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.number_of_threads,
-                                                                  thread_name_prefix="Thread")
+            self.executor = ThreadPoolExecutor(max_workers=self.number_of_threads,
+                                                thread_name_prefix="Thread")
         endpoint, _, _ = self.parse_url(self.args.target)
         for s in self.args.source:
             self.verbose(f"Copy {s} --> {self.args.target}")
@@ -89,9 +97,10 @@ class Copy(pyuftp.base.CopyBase):
                             length = remote_size - offset
                 args = [endpoint, base_dir, item, offset, length, target, rw]
                 if self.number_of_threads==1:
+                    uftp.performance_display = self.performance_display
                     Worker(self, uftp=uftp).download(*args)
                 else:
-                    self.executor.submit(Worker(self, self.thread_storage).download, *args)
+                    self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).download, *args)
 
     def do_upload(self, local, remote):
         """ upload local source (which can specify wildcards) to a remote location """
@@ -142,17 +151,19 @@ class Copy(pyuftp.base.CopyBase):
                                 length = local_size - offset
                     args = [endpoint, base_dir, item, target, offset, length, rw]
                     if self.number_of_threads==1:
+                        uftp.performance_display = self.performance_display
                         Worker(self, uftp=uftp).upload(*args)
                     else:
-                        f = self.executor.submit(Worker(self, self.thread_storage).upload, *args)
+                        f = self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).upload, *args)
 
 class Worker():
     """ performs uploads/downloads, suitable for running in a pool thread """
-    def __init__(self, base_command, thread_local=None, uftp=None):
+    def __init__(self, base_command, thread_local=None, uftp=None, performance_display=None):
         self.base = base_command
         self.thread_storage = thread_local
         self.uftp = uftp
-
+        self.performance_display = performance_display
+      
     def setup(self, endpoint, base_dir):
         if self.thread_storage is not None:
             self.uftp = getattr(self.thread_storage, "uftp", None)
@@ -164,7 +175,8 @@ class Worker():
         self.uftp.open_session(host, port, onetime_pwd)
         if self.thread_storage is not None:
             self.thread_storage.uftp = self.uftp
-
+        self.uftp.performance_display = self.performance_display
+     
     def download(self, endpoint, base_dir, item, offset, length, target, write_range=False):
         self.setup(endpoint, base_dir)
         source = os.path.basename(item)

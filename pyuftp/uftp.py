@@ -1,7 +1,7 @@
 """
     Interacting with a UFTPD server (opening a session, listings, I/O, ...)
 """
-import ftplib, os, stat
+import ftplib, os, stat, sys, threading
 
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
@@ -23,6 +23,7 @@ class UFTP:
         self.uid = os.getuid()
         self.gid = os.getgid()
         self.buffer_size = 65536
+        self.performance_display = None
 
     def open_session(self, host, port, password):
         """open an FTP session at the given UFTP server"""
@@ -185,6 +186,9 @@ class UFTP:
     def copy_data(self, source, target, num_bytes):
         total = 0
         start_time = int(time())
+        c = 0
+        if self.performance_display:
+            self.performance_display.start()
         if num_bytes<0:
             num_bytes = maxsize
         while total<num_bytes:
@@ -201,6 +205,12 @@ class UFTP:
                 write_offset += written
                 to_write -= written
             total = total + len(data)
+            c+=1
+            if self.performance_display and c%200==0:
+                self.performance_display.update_total(total)
+        if self.performance_display:
+            self.performance_display.finish(total)
+
         target.flush()
         return total, int(time()) - start_time
 
@@ -243,3 +253,64 @@ class FileInfo:
         return f"{self.perm} {self.size:20} {udate} {self.path}"
 
     __str__ = __repr__
+
+class PerformanceDisplay:
+    def __init__(self, number_of_threads):
+        self.started_at = [None] * number_of_threads
+        self.size = [None] * number_of_threads
+        self.have = [None] * number_of_threads
+        self.rate = [None] * number_of_threads
+	
+    def start(self):
+        i = self.thread_index()
+        self.started_at[i] = int(time())
+
+    def thread_index(self):
+        n = threading.current_thread().name.split("_")
+        if len(n)>1:
+            return int(n[-1])
+        else:
+            return 0
+
+    def update_total(self, total_bytes):
+        i = self.thread_index()
+        duration = time() - self.started_at[i]
+        self.have[i] = total_bytes
+        self.rate[i] = 0.001*float(total_bytes)/(float(duration)+1)
+        self.output()
+
+    def finish(self, size):
+        i = self.thread_index()
+        duration = time() - self.started_at[i]
+        self.have[i] = size
+        self.rate[i] = 0.001*float(size)/(float(duration)+1)
+        self.output()
+
+    def output(self):
+        _out = []
+        _r_total = 0
+        for r in self.rate:
+            if r:
+                _r_total +=r
+                if r<1000:
+                    unit = "kB/sec"
+                    rate = int(r)
+                else:
+                    unit = "MB/sec"
+                    rate = int(r / 1000)
+                _out.append(str(rate)+unit)
+            else:
+                _out.append("-------")
+        if _r_total<1000:
+            unit = "kB/sec"
+            rate = int(_r_total)
+        else:
+            unit = "MB/sec"
+            rate = int(_r_total / 1000)
+        _out.append("Total "+str(rate)+unit)
+        sys.stderr.write("\r "+" ".join(_out))
+        sys.stderr.flush()
+
+    def close(self):
+        sys.stderr.write("\n")
+        sys.stderr.flush()
