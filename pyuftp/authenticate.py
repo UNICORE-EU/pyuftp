@@ -196,7 +196,7 @@ def create_credential(username=None, password=None, token=None, identity=None):
             "To use key-based authentication, you will need the 'cryptography' package."
         )
 
-def authenticate(auth_url, credential, base_dir=""):
+def authenticate(auth_url, credential, base_dir="", encryption_key = None, encryption_algo = None):
     """authenticate to the auth server and return a tuple (host, port, one-time-password)"""
     if base_dir != "" and not base_dir.endswith("/"):
         base_dir += "/"
@@ -204,6 +204,9 @@ def authenticate(auth_url, credential, base_dir=""):
         "persistent": "true",
         "serverPath": base_dir,
     }
+    if encryption_key:
+        req["encryptionKey"] = encryption_key
+        req["encryptionAlgorithm"] = encryption_algo
     params = post_json(auth_url, credential, req)
     success = params['success']
     if(str(success).lower()=="false"):
@@ -212,7 +215,7 @@ def authenticate(auth_url, credential, base_dir=""):
             raise ValueError(msg)
         except KeyError:
             raise ValueError("Error authenticating. Reply: "+str(params))
-    return params["serverHost"], params["serverPort"], params["secret"]
+    return get_connection_params(params)
 
 def get_json(url, credential):
     _headers = {
@@ -223,6 +226,9 @@ def get_json(url, credential):
         check_error(res)
         js = res.json()
     return js
+
+def get_connection_params(json_data):
+    return json_data["serverHost"], json_data["serverPort"], json_data["secret"]
 
 def post_json(url, credential, json_data, as_json = True):
     _headers = {

@@ -19,6 +19,8 @@ class Base:
             self.password_source = password_source
         else:
             self.password_source = getpass.getpass
+        self.encoded_key = None
+        self.encryption_algo = None
 
     def add_base_args(self):
         self.parser.add_argument("-v", "--verbose",
@@ -43,7 +45,8 @@ class Base:
            a tuple  (host, port, onetime_password)
         """
         self.verbose(f"Authenticating at {endpoint}, base dir: '{base_dir}'")
-        return pyuftp.authenticate.authenticate(endpoint, self.credential, base_dir)
+        return pyuftp.authenticate.authenticate(endpoint, self.credential, base_dir,
+                                                self.encoded_key, self.encryption_algo)
 
     def run(self, args):
         self.args = self.parser.parse_args(args)
@@ -117,8 +120,10 @@ class Info(Base):
         self.parser.description = self.get_synopsis()
         self.parser.add_argument("authURL", help="Auth server URL")
         self.parser.add_argument("-R", "--raw", action="store_true",
-                                 help="print the JSON response from the server")
-
+                                 help="Print the JSON response from the server")
+        self.parser.add_argument("-C", "--connect-to-uftpd", action="store_true",
+                                 help="Connect to UFTPD and get info")
+        
     def get_synopsis(self):
         return """Gets info about the remote server"""
 
@@ -134,6 +139,15 @@ class Info(Base):
             print(json.dumps(reply, indent=2))
         else:
             self.show_info(reply, auth_url)
+        if self.args.connect_to_uftpd:
+            for name in reply:
+                if name in ["client", "server"]:
+                    continue
+                auth_url = reply[name]["href"]
+                host, port, onetime_pwd = pyuftp.authenticate.authenticate(auth_url, self.credential)
+                print(f"Connecting to UFTPD '{name}' at {host}:{port}")
+                with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+                    print(f" * v{uftp.info()}")
     
     def show_info(self, reply, auth_url):
         print(f"Client identity:    {reply['client']['dn']}")

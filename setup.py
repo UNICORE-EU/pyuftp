@@ -16,7 +16,9 @@ install_requires = [
     "bcrypt>=4.0.0"
 ]
 
-extras_require = {}
+extras_require = {
+   "crypto": [ "pycryptodome" ],
+}
 
 setup(
     name="pyuftp",

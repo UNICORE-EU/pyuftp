@@ -5,17 +5,20 @@ import pyuftp.base, pyuftp.cp, pyuftp.share, pyuftp.utils, pyuftp._version
 import platform, sys
 
 _commands = {
-            "authenticate": pyuftp.base.Auth(),
-            "checksum": pyuftp.utils.Checksum(),
-            "cp": pyuftp.cp.Copy(),
-            "find": pyuftp.utils.Find(),
-            "info": pyuftp.base.Info(),
-            "ls": pyuftp.utils.Ls(),
-            "mkdir": pyuftp.utils.Mkdir(),
-            "rcp": pyuftp.cp.RemoteCopy(),
-            "rm": pyuftp.utils.Rm(),
-            "share": pyuftp.share.Share(),
+            "authenticate": pyuftp.base.Auth,
+            "checksum": pyuftp.utils.Checksum,
+            "cp": pyuftp.cp.Copy,
+            "find": pyuftp.utils.Find,
+            "info": pyuftp.base.Info,
+            "ls": pyuftp.utils.Ls,
+            "mkdir": pyuftp.utils.Mkdir,
+            "rcp": pyuftp.cp.RemoteCopy,
+            "rm": pyuftp.utils.Rm,
+            "share": pyuftp.share.Share,
         }
+
+def get_command(name):
+    return _commands.get(name)()
 
 def show_version():
     print("PyUFTP commandline client for UFTP (UNICORE FTP) "
@@ -30,7 +33,7 @@ Usage: pyuftp <command> [OPTIONS] <args>
 The following commands are available:""" % pyuftp._version.get_versions().get('version', "n/a")
     print(s)
     for cmd in _commands:
-        print (f" {cmd:20} - {_commands[cmd].get_synopsis()}")
+        print (f" {cmd:20} - {get_command(cmd).get_synopsis()}")
     print("Enter 'pyuftp <command> -h' for help on a particular command.")
 
 def run(args):
@@ -47,7 +50,7 @@ def run(args):
     cmd = args[0]
     for k in _commands:
         if k.startswith(cmd):
-            command = _commands[k]
+            command = get_command(k)
             break
     if command is None:
         raise ValueError(f"No such command: {cmd}")

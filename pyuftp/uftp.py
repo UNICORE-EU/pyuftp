@@ -1,7 +1,7 @@
 """
     Interacting with a UFTPD server (opening a session, listings, I/O, ...)
 """
-import ftplib, os, stat, sys, threading
+import ftplib, os, re, stat, sys, threading
 
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
@@ -24,16 +24,29 @@ class UFTP:
         self.gid = os.getgid()
         self.buffer_size = 65536
         self.performance_display = None
+        self.version_info = (0,0,0)
+        self.info_str = ""
 
     def open_session(self, host, port, password):
         """open an FTP session at the given UFTP server"""
         self.ftp = ftplib.FTP()
         self.ftp.connect(host, port)
         self.ftp.login("anonymous", password)
-    
+        try:
+            ptrn = re.compile("220 UFTPD (.*),.*")
+            ver_info_str = ptrn.search(self.ftp.getwelcome()).group(1)
+            print(self.ftp.getwelcome(), ver_info_str)
+            self.version_info = tuple(map(int, (ver_info_str.split("."))))
+            self.info_str = ver_info_str
+        except:
+            pass
+            
     __perms = {"r": stat.S_IRUSR, "w": stat.S_IWUSR, "x": stat.S_IXUSR}
     __type = {"file": stat.S_IFREG, "dir": stat.S_IFDIR}
-
+  
+    def info(self):
+        return self.info_str
+        
     def normalize(self, path):
         if path is not None:
             if path.startswith("/"):
@@ -210,7 +223,6 @@ class UFTP:
                 self.performance_display.update_total(total)
         if self.performance_display:
             self.performance_display.finish(total)
-
         target.flush()
         return total, int(time()) - start_time
 

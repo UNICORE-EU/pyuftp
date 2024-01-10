@@ -5,14 +5,14 @@ from pyuftp import client
 class TestShare(unittest.TestCase):
 
     def test_list(self):
-        share = client._commands.get("share")
+        share = client.get_command("share")
         args = ["-v", "-u", "demouser:test123",
                 "--list",
                 "--server", "https://localhost:9000/rest/share/TEST"]
         share.run(args)
 
     def test_share_1(self):
-        share = client._commands.get("share")
+        share = client.get_command("share")
         args = ["-v", "-u", "demouser:test123",
                 "--server", "https://localhost:9000/rest/share/TEST",
                 "/tmp/"]

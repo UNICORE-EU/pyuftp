@@ -110,7 +110,13 @@ class Find(pyuftp.base.Base):
         self.parser.prog = "pyuftp find"
         self.parser.description = self.get_synopsis()
         self.parser.add_argument("remoteURL", help="Remote UFTP URL")
-
+        self.parser.add_argument("-r", "--recurse", required=False, action="store_true",
+                                 help="Recurse into subdirectories, if applicable")
+        self.parser.add_argument("-F", "--files-only", required=False, action="store_true",
+                                 help="Only list files, not directories")
+        self.parser.add_argument("-p", "--pattern", required=False, type=str, default="*",
+                                 help="Only list entries matching this pattern")
+        
     def get_synopsis(self):
         return """List all files in a remote directory"""
 
@@ -123,7 +129,7 @@ class Find(pyuftp.base.Base):
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
             base = "."
-            pattern = "*"
+            pattern = self.args.pattern
             if len(file_name)>0:
                 if uftp.is_dir(file_name):
                     base = file_name
@@ -133,7 +139,9 @@ class Find(pyuftp.base.Base):
             if base_dir=="/":
                 # to clean-up the output since normpath does not collapse two leading '/'
                 base_dir = ""
-            for (entry, _) in crawl_remote(uftp, base, pattern, all=True):
+            for (entry, _) in crawl_remote(uftp, base, pattern,
+                                           all=self.args.recurse,
+                                           files_only=self.args.files_only):
                 print(os.path.normpath(base_dir+"/"+entry))
 
 
@@ -152,23 +160,27 @@ def parse_value_with_units(value):
 def is_wildcard(path):
     return "*" in path or "?" in path
 
-def crawl_remote(uftp, base_dir, file_pattern="*", recurse=False, all=False):
+def crawl_remote(uftp, base_dir, file_pattern="*", recurse=False, all=False, files_only=True, _level=0):
     """ returns tuples (name, size) """
+    if not files_only and _level==0:
+        # return top-level dir because Unix 'find' does it
+        bd = uftp.stat(".")
+        yield base_dir, bd["st_size"]
     for x in uftp.listdir("."):
-        if not x.is_dir:
+        if not x.is_dir or not files_only:
             if not fnmatch.fnmatch(x.path, file_pattern):
                 continue
             else:
                 yield base_dir+"/"+x.path, x.size
-        if all or (recurse and fnmatch.fnmatch(x.path, file_pattern)):
+        if x.is_dir and (all or (recurse and fnmatch.fnmatch(x.path, file_pattern))):
             try:
                 uftp.cwd(x.path)
             except OSError:
                 continue
-            for y, size in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all):
+            for y, size in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all, _level+1):
                 yield y, size
             uftp.cdup()
-
+    
 def crawl_local(base_dir, file_pattern="*", recurse=False, all=False):
     for x in os.listdir(base_dir):
         if not os.path.isdir(base_dir+"/"+x):

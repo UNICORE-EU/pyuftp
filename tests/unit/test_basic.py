@@ -10,9 +10,10 @@ class TestBasic(unittest.TestCase):
         client.show_version()
         for cmd in client._commands:
             print("\n*** %s *** " % cmd)
-            print(client._commands[cmd].get_synopsis())
-            client._commands[cmd].parser.print_usage()
-            client._commands[cmd].parser.print_help()
+            c = client.get_command(cmd)
+            print(c.get_synopsis())
+            c.parser.print_usage()
+            c.parser.print_help()
 
     def test_run_args(self):
         client.run([])
