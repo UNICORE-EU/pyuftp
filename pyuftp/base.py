@@ -123,6 +123,7 @@ class Info(Base):
                                  help="Print the JSON response from the server")
         self.parser.add_argument("-C", "--connect-to-uftpd", action="store_true",
                                  help="Connect to UFTPD and get info")
+        self.server_info = {}
         
     def get_synopsis(self):
         return """Gets info about the remote server"""
@@ -144,10 +145,12 @@ class Info(Base):
                 if name in ["client", "server"]:
                     continue
                 auth_url = reply[name]["href"]
+                self.server_info[name] = {"url": auth_url}
                 host, port, onetime_pwd = pyuftp.authenticate.authenticate(auth_url, self.credential)
                 print(f"Connecting to UFTPD '{name}' at {host}:{port}")
                 with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
                     print(f" * v{uftp.info()}")
+                    self.server_info[name]["version"] = uftp.version_info
     
     def show_info(self, reply, auth_url):
         print(f"Client identity:    {reply['client']['dn']}")

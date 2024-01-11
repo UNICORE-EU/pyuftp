@@ -35,7 +35,6 @@ class UFTP:
         try:
             ptrn = re.compile("220 UFTPD (.*),.*")
             ver_info_str = ptrn.search(self.ftp.getwelcome()).group(1)
-            print(self.ftp.getwelcome(), ver_info_str)
             self.version_info = tuple(map(int, (ver_info_str.split("."))))
             self.info_str = ver_info_str
         except:
