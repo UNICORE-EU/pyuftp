@@ -78,7 +78,11 @@ class Base:
         else:
             pwd_prompt = "Enter passphrase for key: "
         if self.args.password and password is None:
-            password = self.password_source(pwd_prompt)
+            _p = os.getenv("UFTP_PASSWORD")
+            if not _p:
+                password = self.password_source(pwd_prompt)
+            else:
+                password = _p
         try:
             self.credential = pyuftp.authenticate.create_credential(username, password, token, identity)
         except ValueError as e:
