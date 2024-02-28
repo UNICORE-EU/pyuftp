@@ -1,8 +1,7 @@
 """ Copy command class and helpers """
 
 import pyuftp.base, pyuftp.uftp, pyuftp.utils
-import base64, os, os.path, pathlib, sys
-import threading, secrets
+import os, os.path, pathlib, sys, threading
 from concurrent.futures import ThreadPoolExecutor
     
 class Copy(pyuftp.base.CopyBase):
@@ -22,46 +21,27 @@ class Copy(pyuftp.base.CopyBase):
                                  help="Check existing target file(s) and try to resume")
         self.parser.add_argument("-D", "--show-performance", required=False, action="store_true",
                                  help="Show detailed transfer rates during the transfer")
-        self.parser.add_argument("-E", "--encrypt", required=False, action="store_true",
-                                 help="Encrypt data connections")
-        self.parser.add_argument("-n", "--streams", required=False, type=int, default=1,
-                                 help="Number of TCP streams per connection/thread")
+    
     def get_synopsis(self):
         return """Copy file(s)"""
 
     def run(self, args):
         super().run(args)
         self.archive_mode = self.args.archive
-        self.number_of_threads = self.args.threads
-        self.verbose(f"Number of threads = {self.number_of_threads}")
-        self.number_of_streams = self.args.streams
-        self.verbose(f"Number of streams per thread = {self.number_of_streams}")
-        self.encrypt_data = self.args.encrypt
-        if self.encrypt_data:
-            try:
-                import pyuftp.cryptutils
-            except ImportError:
-                raise ValueError("Encryption not supported! Install the required library with 'pip install pycryptodome'")
-            self.algo = os.getenv("UFTP_ENCRYPTION_ALGORITHM", "BLOWFISH").upper()
-            self.keylength = 56
-            if "AES"==self.algo:
-                aes_len = os.getenv("UFTP_ENCRYPTION_AES_KEYSIZE", "32")
-                self.keylength = 16+int(aes_len)
-                self.verbose(f"Encryption (AES) enabled with key length {aes_len}");
-            else:
-                self.verbose(f"Encryption (Blowfish) enabled with key length {self.keylength}");
-            self.key = secrets.token_bytes(self.keylength)   
-            self.encoded_key = str(base64.b64encode(self.key), "UTF-8")
-        self.compress = False
+        if self.archive_mode:
+            self.verbose("Archive mode = True")
         self.resume = self.args.resume and not self.args.target=="-"
-        self.verbose(f"Resume mode = {self.resume}")
+        if self.resume:
+            self.verbose("Resume mode = True")
         self.show_performance = self.args.show_performance
-        self.verbose(f"Performance display = {self.show_performance}")
         if self.show_performance:
+            self.verbose("Performance display = True")
             self.performance_display = pyuftp.uftp.PerformanceDisplay(self.number_of_threads)
         else:
             self.performance_display = None
+        self.number_of_threads = self.args.threads
         if self.number_of_threads>1:
+            self.verbose(f"Number of threads = {self.number_of_threads}")
             self.thread_storage = threading.local()
             self.executor = ThreadPoolExecutor(max_workers=self.number_of_threads,
                                                 thread_name_prefix="Thread")
@@ -99,6 +79,7 @@ class Copy(pyuftp.base.CopyBase):
             uftp.key = self.key
             uftp.algo = self.algo
             uftp.number_of_streams = self.number_of_streams
+            uftp.compress = self.compress
             for (item, remote_size) in pyuftp.utils.crawl_remote(uftp, ".", file_name, recurse=self.args.recurse):
                 offset, length, rw = self._get_range()
                 if os.path.isdir(local):
@@ -143,6 +124,7 @@ class Copy(pyuftp.base.CopyBase):
             uftp.key = self.key
             uftp.algo = self.algo
             uftp.number_of_streams = self.number_of_streams
+            uftp.compress = self.compress
             if self.archive_mode:
                 uftp.set_archive_mode()
             if "-"==local:

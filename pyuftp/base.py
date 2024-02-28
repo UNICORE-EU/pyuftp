@@ -1,7 +1,7 @@
 """ Base command class and a few general commands """
 
 import pyuftp.authenticate
-import argparse, getpass, json, os, os.path, sys, threading
+import argparse, base64, getpass, json, os, os.path, secrets, sys, threading
 from urllib.parse import urlparse
 
 class Base:
@@ -22,6 +22,8 @@ class Base:
         self.key = None
         self.encoded_key = None
         self.algo = None
+        self.compress = False
+        self.number_of_streams = 1
 
     def add_base_args(self):
         self.parser.add_argument("-v", "--verbose",
@@ -47,7 +49,7 @@ class Base:
         """
         self.verbose(f"Authenticating at {endpoint}, base dir: '{base_dir}' encrypted: {self.key is not  None}" )
         return pyuftp.authenticate.authenticate(endpoint, self.credential, base_dir,
-                                                self.encoded_key, self.algo)
+                                                self.encoded_key, self.algo, self.number_of_streams, self.compress)
 
     def run(self, args):
         self.args = self.parser.parse_args(args)
@@ -216,10 +218,38 @@ class CopyBase(Base):
     def add_base_args(self):
         Base.add_base_args(self)
         self.parser.add_argument("-B", "--bytes", help="Byte range: range_spec", required=False)
+        self.parser.add_argument("-E", "--encrypt", required=False, action="store_true",
+                                 help="Encrypt data connections")
+        self.parser.add_argument("-n", "--streams", required=False, type=int, default=1,
+                                 help="Number of TCP streams per connection/thread")
+        self.parser.add_argument("-C", "--compress", required=False, action="store_true",
+                                 help="Compress data for transfer")
 
     def run(self, args):
         super().run(args)
         self.init_range()
+        self.number_of_streams = self.args.streams
+        if self.number_of_streams>1:
+            self.verbose(f"Number of TCP streams per connection/thread = {self.number_of_streams}")
+        self.encrypt_data = self.args.encrypt
+        if self.encrypt_data:
+            try:
+                import pyuftp.cryptutils
+            except ImportError:
+                raise ValueError("Encryption not supported! Install the required library with 'pip install pycryptodome'")
+            self.algo = os.getenv("UFTP_ENCRYPTION_ALGORITHM", "BLOWFISH").upper()
+            self.keylength = 56
+            if "AES"==self.algo:
+                aes_len = os.getenv("UFTP_ENCRYPTION_AES_KEYSIZE", "32")
+                self.keylength = 16+int(aes_len)
+                self.verbose(f"Encryption (AES) enabled with key length {aes_len}");
+            else:
+                self.verbose(f"Encryption (Blowfish) enabled with key length {self.keylength}");
+            self.key = secrets.token_bytes(self.keylength)   
+            self.encoded_key = str(base64.b64encode(self.key), "UTF-8")
+        self.compress = self.args.compress
+        if self.compress:
+            self.verbose(f"Compressing data = {self.compress}")
 
     def init_range(self):
         self.start_byte = 0

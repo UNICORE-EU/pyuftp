@@ -3,7 +3,7 @@
 """
 import ftplib, os, re, socket, stat, sys, threading
 from pyuftp.pconnector import PConnector
-import pyuftp.cryptutils
+import pyuftp.cryptutils, pyuftp.utils
 
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
@@ -232,6 +232,8 @@ class UFTP:
         if self.key is not None:
                 cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
                 f = pyuftp.cryptutils.CryptWriter(f, cipher)
+        if self.compress:
+            f = pyuftp.utils.GzipWriter(f)
         return f
     
     @contextmanager
@@ -262,6 +264,8 @@ class UFTP:
         if self.key is not None:
                 cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
                 f = pyuftp.cryptutils.DecryptReader(f, cipher)
+        if self.compress:
+            f = pyuftp.utils.GzipReader(f)
         return f
 
     def copy_data(self, source, target, num_bytes):

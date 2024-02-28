@@ -17,23 +17,25 @@ class PConnector(object):
             raise ValueError()
         if self.encrypt:
             import pyuftp.cryptutils
+        if compress:
+            import pyuftp.utils
         for conn in inputs:
             f = conn.makefile("rb")
             if self.encrypt:
                 cipher = pyuftp.cryptutils.create_cipher(key, algo)
-                self._inputs.append(pyuftp.cryptutils.DecryptReader(f, cipher))
-            else:
-                self._inputs.append(f)
+                f = pyuftp.cryptutils.DecryptReader(f, cipher)
+            if compress:
+                f = pyuftp.utils.GzipReader(f)
+            self._inputs.append(f)
         for conn in outputs:
             f = conn.makefile("wb")
             if self.encrypt:
                 cipher = pyuftp.cryptutils.create_cipher(key, algo)
-                self._outputs.append(pyuftp.cryptutils.CryptWriter(f, cipher))
-            else:
-                self._outputs.append(f)
+                f = pyuftp.cryptutils.CryptWriter(f, cipher)
+            if compress:
+                f = pyuftp.utils.GzipWriter(f)
+            self._outputs.append(f)
         self.seq = 0
-        if compress:
-            raise ValueError("Not yet implemented")
 
     def write(self, data):
         """ Write all the data to remote channel """

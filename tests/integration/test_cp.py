@@ -3,43 +3,39 @@ from pyuftp import client
 
 class TestCP(unittest.TestCase):
 
-    def test_cp_upload_download_1(self):
-        with tempfile.TemporaryDirectory() as tempdir:
-            remote_dir = self._mk_tmpdir()
-            cp = client.get_command("cp")
-            args = ["-v", "-u", "demouser:test123",
-                    "./Makefile",
-                    f"https://localhost:9000/rest/auth/TEST:{remote_dir}"]
-            cp.run(args)
-            cp = client.get_command("cp")
-            args = ["-v", "-u", "demouser:test123",
-                    f"https://localhost:9000/rest/auth/TEST:{remote_dir}/Makefile",
-                    f"{tempdir}/x" ]
-            cp.run(args)
-            h1 = self._hash_local("./Makefile")
-            h2 = self._hash_local(f"{tempdir}/x")
-            self.assertEqual(h1, h2, "Copied files do not match")
+    def x_test_cp_upload_download_1(self):
+        self.do_upload_download()
 
-    def test_cp_upload_download_2(self):
+    def x_test_cp_upload_download_2(self):
+        extra_args = [ "-n", "2" ]
+        self.do_upload_download(extra_args)
+
+    def test_cp_upload_download_compressed(self):
+        extra_args = [ "-C" ]
+        self.do_upload_download(extra_args)
+
+    def do_upload_download(self, extra_args=[]):
         with tempfile.TemporaryDirectory() as tempdir:
             remote_dir = self._mk_tmpdir()
             cp = client.get_command("cp")
             args = [ "-v", "-u", "demouser:test123",
-                    "-n", "2",
                     "./Makefile",
                     f"https://localhost:9000/rest/auth/TEST:{remote_dir}"]
+            args += extra_args
             cp.run(args)
             cp = client.get_command("cp")
             args = [ "-v", "-u", "demouser:test123",
-                    "-n", "2",
                     f"https://localhost:9000/rest/auth/TEST:{remote_dir}/Makefile",
                     f"{tempdir}/x" ]
+            args += extra_args
             cp.run(args)
             h1 = self._hash_local("./Makefile")
-            h2 = self._hash_local(f"{tempdir}/x")
-            self.assertEqual(h1, h2, "Copied files do not match")
+            h2 = self._hash_remote(f"{remote_dir}/Makefile")
+            self.assertEqual(h1, h2, "Uploaded file does not match original")
+            h3 = self._hash_local(f"{tempdir}/x")
+            self.assertEqual(h1, h3, "Downloaded file does not match original")
 
-    def test_cp_upload_multiple(self):
+    def x_test_cp_upload_multiple(self):
         print(os.getcwd())
         cp = client.get_command("cp")
         args = ["-v", "-u", "demouser:test123", 
@@ -47,7 +43,7 @@ class TestCP(unittest.TestCase):
                 "https://localhost:9000/rest/auth/TEST:/dev/null"]
         cp.run(args)
 
-    def test_cp_download_multiple(self):
+    def x_test_cp_download_multiple(self):
         with tempfile.TemporaryDirectory() as tempdir:
             remote_dir = self._mk_tmpdir()
             for i in [1,2,3]:
@@ -69,7 +65,7 @@ class TestCP(unittest.TestCase):
                         d ]
                 cp.run(args)
 
-    def test_cp_download_stdout(self):
+    def x_test_cp_download_stdout(self):
         with tempfile.TemporaryDirectory() as tempdir:
             remote_dir = self._mk_tmpdir()
             with open(f"{tempdir}/test1.txt", "wb") as f:

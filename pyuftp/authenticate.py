@@ -196,7 +196,8 @@ def create_credential(username=None, password=None, token=None, identity=None):
             "To use key-based authentication, you will need the 'cryptography' package."
         )
 
-def authenticate(auth_url, credential, base_dir="", encryption_key = None, encryption_algo = None):
+def authenticate(auth_url, credential, base_dir="", encryption_key = None, encryption_algo = None,
+                 number_of_streams=1, compress=False):
     """authenticate to the auth server and return a tuple (host, port, one-time-password)"""
     if base_dir != "" and not base_dir.endswith("/"):
         base_dir += "/"
@@ -204,6 +205,10 @@ def authenticate(auth_url, credential, base_dir="", encryption_key = None, encry
         "persistent": "true",
         "serverPath": base_dir,
     }
+    if compress:
+        req["compress"] = "true"
+    if number_of_streams>1:
+        req["streamCount"] = number_of_streams
     if encryption_key:
         req["encryptionKey"] = encryption_key
         req["encryptionAlgorithm"] = encryption_algo
