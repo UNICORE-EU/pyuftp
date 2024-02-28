@@ -47,7 +47,7 @@ class Base:
         Returns:
            a tuple  (host, port, onetime_password)
         """
-        self.verbose(f"Authenticating at {endpoint}, base dir: '{base_dir}' encrypted: {self.key is not  None}" )
+        self.verbose(f"Authenticating at {endpoint}, base dir: '{base_dir}'")
         return pyuftp.authenticate.authenticate(endpoint, self.credential, base_dir,
                                                 self.encoded_key, self.algo, self.number_of_streams, self.compress)
 

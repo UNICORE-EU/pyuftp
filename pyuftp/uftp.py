@@ -210,13 +210,14 @@ class UFTP:
 
     @contextmanager
     def get_writer(self, path, offset=0, length=-1, writePartial=False):
+        connections = []
         try:
             self.set_remote_write_range(offset, length, writePartial)
             connections = self._open_data_connections()
             if self.number_of_streams>1:
                 s = PConnector(outputs=connections, key=self.key, algo=self.algo, compress=self.compress)
             else:
-                s = self._wrap_writer(connections[0])
+                s = self._wrap_connection(connections[0], False)
             self.ftp.sendcmd("STOR %s" % path)
             yield s
         finally:
@@ -227,17 +228,9 @@ class UFTP:
                 except:
                     pass
 
-    def _wrap_writer(self, conn):
-        f = conn.makefile("wb")
-        if self.key is not None:
-                cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
-                f = pyuftp.cryptutils.CryptWriter(f, cipher)
-        if self.compress:
-            f = pyuftp.utils.GzipWriter(f)
-        return f
-    
     @contextmanager
     def get_reader(self, path, offset=0, length=-1):
+        connections = []
         try:
             if offset>0 or length>-1:
                 self.send_range(offset, length)
@@ -245,7 +238,7 @@ class UFTP:
             if self.number_of_streams>1:
                 s = PConnector(inputs=connections, key=self.key, algo=self.algo, compress=self.compress)
             else:
-                s = self._wrap_reader(connections[0])
+                s = self._wrap_connection(connections[0], True)
             reply = self.ftp.sendcmd("RETR %s" % path)
             if not reply.startswith("150"):
                 raise OSError("ERROR "+reply)
@@ -259,13 +252,19 @@ class UFTP:
                 except:
                     pass
 
-    def _wrap_reader(self, conn):
-        f = conn.makefile("rb")
+    def _wrap_connection(self, conn, isRead):
+        f = conn.makefile("wb")
         if self.key is not None:
                 cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
-                f = pyuftp.cryptutils.DecryptReader(f, cipher)
+                if isRead:
+                    pyuftp.cryptutils.DecryptReader(f, cipher)
+                else:
+                    f = pyuftp.cryptutils.CryptWriter(f, cipher)
         if self.compress:
-            f = pyuftp.utils.GzipReader(f)
+            if isRead:
+                f = pyuftp.utils.GzipReader(f)
+            else:
+                f = pyuftp.utils.GzipWriter(f)
         return f
 
     def copy_data(self, source, target, num_bytes):
