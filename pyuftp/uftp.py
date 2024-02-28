@@ -253,7 +253,8 @@ class UFTP:
                     pass
 
     def _wrap_connection(self, conn, isRead):
-        f = conn.makefile("wb")
+        mode = "rb" if isRead else "wb"
+        f = conn.makefile(mode)
         if self.key is not None:
                 cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
                 if isRead:
