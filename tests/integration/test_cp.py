@@ -1,6 +1,5 @@
-import tempfile, time, os, unittest
+import hashlib, tempfile, time, os, unittest
 from pyuftp import client
-
 
 class TestCP(unittest.TestCase):
 
@@ -17,6 +16,28 @@ class TestCP(unittest.TestCase):
                     f"https://localhost:9000/rest/auth/TEST:{remote_dir}/Makefile",
                     f"{tempdir}/x" ]
             cp.run(args)
+            h1 = self._hash_local("./Makefile")
+            h2 = self._hash_local(f"{tempdir}/x")
+            self.assertEqual(h1, h2, "Copied files do not match")
+
+    def test_cp_upload_download_2(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            remote_dir = self._mk_tmpdir()
+            cp = client.get_command("cp")
+            args = [ "-v", "-u", "demouser:test123",
+                    "-n", "2",
+                    "./Makefile",
+                    f"https://localhost:9000/rest/auth/TEST:{remote_dir}"]
+            cp.run(args)
+            cp = client.get_command("cp")
+            args = [ "-v", "-u", "demouser:test123",
+                    "-n", "2",
+                    f"https://localhost:9000/rest/auth/TEST:{remote_dir}/Makefile",
+                    f"{tempdir}/x" ]
+            cp.run(args)
+            h1 = self._hash_local("./Makefile")
+            h2 = self._hash_local(f"{tempdir}/x")
+            self.assertEqual(h1, h2, "Copied files do not match")
 
     def test_cp_upload_multiple(self):
         print(os.getcwd())
@@ -67,6 +88,18 @@ class TestCP(unittest.TestCase):
                 "https://localhost:9000/rest/auth/TEST:"+new_dir]
         mkd.run(args)
         return new_dir
+
+    def _hash_remote(self, filename):
+        checksum = client.get_command("checksum")
+        args = ["-u", "demouser:test123", "-a", "MD5",
+                f"https://localhost:9000/rest/auth/TEST:{filename}"]
+        return checksum.run(args)  
+
+    def _hash_local(self, filename):
+        with open(filename,"rb") as f:
+            md = hashlib.md5()
+            md.update(f.read())
+            return md.hexdigest()
 
     def _upload(self, local_file, remote_file):
         cp = client.get_command("cp")

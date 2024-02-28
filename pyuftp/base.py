@@ -19,8 +19,9 @@ class Base:
             self.password_source = password_source
         else:
             self.password_source = getpass.getpass
+        self.key = None
         self.encoded_key = None
-        self.encryption_algo = None
+        self.algo = None
 
     def add_base_args(self):
         self.parser.add_argument("-v", "--verbose",
@@ -44,9 +45,9 @@ class Base:
         Returns:
            a tuple  (host, port, onetime_password)
         """
-        self.verbose(f"Authenticating at {endpoint}, base dir: '{base_dir}'")
+        self.verbose(f"Authenticating at {endpoint}, base dir: '{base_dir}' encrypted: {self.key is not  None}" )
         return pyuftp.authenticate.authenticate(endpoint, self.credential, base_dir,
-                                                self.encoded_key, self.encryption_algo)
+                                                self.encoded_key, self.algo)
 
     def run(self, args):
         self.args = self.parser.parse_args(args)
@@ -242,9 +243,9 @@ class CopyBase(Base):
         if self.have_range:
             offset = self.start_byte
             length = self.end_byte - self.start_byte + 1
-        return offset, length
+        return offset, length, self.range_read_write
 
-    def log_usage(self, send, source, target, size, duration):
+    def log_usage(self, send:bool, source, target, size, duration):
         if not self.is_verbose:
             return
         if send:

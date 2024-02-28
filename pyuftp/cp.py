@@ -24,16 +24,18 @@ class Copy(pyuftp.base.CopyBase):
                                  help="Show detailed transfer rates during the transfer")
         self.parser.add_argument("-E", "--encrypt", required=False, action="store_true",
                                  help="Encrypt data connections")
-
+        self.parser.add_argument("-n", "--streams", required=False, type=int, default=1,
+                                 help="Number of TCP streams per connection/thread")
     def get_synopsis(self):
         return """Copy file(s)"""
 
     def run(self, args):
         super().run(args)
-        self.init_range()
         self.archive_mode = self.args.archive
         self.number_of_threads = self.args.threads
         self.verbose(f"Number of threads = {self.number_of_threads}")
+        self.number_of_streams = self.args.streams
+        self.verbose(f"Number of streams per thread = {self.number_of_streams}")
         self.encrypt_data = self.args.encrypt
         if self.encrypt_data:
             try:
@@ -50,6 +52,7 @@ class Copy(pyuftp.base.CopyBase):
                 self.verbose(f"Encryption (Blowfish) enabled with key length {self.keylength}");
             self.key = secrets.token_bytes(self.keylength)   
             self.encoded_key = str(base64.b64encode(self.key), "UTF-8")
+        self.compress = False
         self.resume = self.args.resume and not self.args.target=="-"
         self.verbose(f"Resume mode = {self.resume}")
         self.show_performance = self.args.show_performance
@@ -93,9 +96,11 @@ class Copy(pyuftp.base.CopyBase):
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            uftp.key = self.key
+            uftp.algo = self.algo
+            uftp.number_of_streams = self.number_of_streams
             for (item, remote_size) in pyuftp.utils.crawl_remote(uftp, ".", file_name, recurse=self.args.recurse):
-                offset, length = self._get_range()
-                rw = self.range_read_write
+                offset, length, rw = self._get_range()
                 if os.path.isdir(local):
                     target = os.path.normpath(local+"/"+item)
                     local_dir = os.path.dirname(target)
@@ -113,6 +118,15 @@ class Copy(pyuftp.base.CopyBase):
                             self.verbose(f"'{target}': resuming at {size}.")
                             offset = size
                             length = remote_size - offset
+                else:
+                    exists, size = self.check_download_exists(target)
+                    if exists and not rw:
+                        try:
+                            with open(target, "r+b") as fl:
+                                fl.truncate(0)
+                                self.verbose(f"'{target}': truncating.")
+                        except OSError:
+                            pass
                 args = [endpoint, base_dir, item, offset, length, target, rw]
                 if self.number_of_threads==1:
                     uftp.performance_display = self.performance_display
@@ -126,16 +140,17 @@ class Copy(pyuftp.base.CopyBase):
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            uftp.key = self.key
+            uftp.algo = self.algo
+            uftp.number_of_streams = self.number_of_streams
             if self.archive_mode:
                 uftp.set_archive_mode()
             if "-"==local:
-                offset, length = self._get_range()
+                offset, length, rw = self._get_range()
                 remote_offset = offset if self.range_read_write else 0
-                with uftp.get_write_socket(remote_file_name, offset, length) as data_connection:
-                    writer = self.wrap_writer(data_connection.makefile("wb"))
+                with uftp.get_writer(remote_file_name, remote_offset, length, rw) as writer:
                     total, duration = uftp.copy_data(sys.stdin.buffer, writer, length)
                     self.log_usage(True, "stdin", remote_file_name, total, duration)
-                    writer.close()
                 uftp.finish_transfer()
             else:
                 local_base_dir = os.path.dirname(local)
@@ -156,8 +171,7 @@ class Copy(pyuftp.base.CopyBase):
                     if target.startswith("/"):
                         target = target[1:]
                     local_size = os.stat(item).st_size
-                    offset, length = self._get_range(local_size)
-                    rw = self.range_read_write
+                    offset, length, rw = self._get_range(local_size)
                     if self.resume:
                         exists, remote_size = self.check_upload_exists(uftp, target)
                         if exists:
@@ -175,26 +189,14 @@ class Copy(pyuftp.base.CopyBase):
                     else:
                         f = self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).upload, *args)
 
-    def wrap_reader(self, reader):
-        if self.encrypt_data:
-            cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
-            reader = pyuftp.cryptutils.DecryptReader(reader, cipher)
-        return reader
-    
-    def wrap_writer(self, writer):
-        if self.encrypt_data:
-            cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
-            writer = pyuftp.cryptutils.CryptWriter(writer, cipher)
-        return writer
-    
 class Worker():
-    """ performs uploads/downloads, suitable for running in a pool thread """
-    def __init__(self, base_command, thread_local=None, uftp=None, performance_display=None):
+    """ performs uploads/downloads, suselfitable for running in a pool thread """
+    def __init__(self, base_command: Copy, thread_local=None, uftp: pyuftp.uftp.UFTP=None, performance_display=None):
         self.base = base_command
         self.thread_storage = thread_local
         self.uftp = uftp
         self.performance_display = performance_display
-      
+
     def setup(self, endpoint, base_dir):
         if self.thread_storage is not None:
             self.uftp = getattr(self.thread_storage, "uftp", None)
@@ -202,17 +204,16 @@ class Worker():
             return
         host, port, onetime_pwd = self.base.authenticate(endpoint, base_dir)
         self.base.verbose(f"[{threading.current_thread().name}] Connecting to UFTPD {host}:{port}")
-        self.uftp = pyuftp.uftp.UFTP()
+        self.uftp = pyuftp.uftp.UFTP(self.base.number_of_streams, self.base.key, self.base.algo, self.base.compress)
         self.uftp.open_session(host, port, onetime_pwd)
         if self.thread_storage is not None:
             self.thread_storage.uftp = self.uftp
         self.uftp.performance_display = self.performance_display
-     
+
     def download(self, endpoint, base_dir, item, offset, length, target, write_range=False):
         self.setup(endpoint, base_dir)
         source = os.path.basename(item)
-        with self.uftp.get_read_socket(source, offset, length) as data_connection:
-            reader = self.base.wrap_reader(data_connection.makefile("rb"))
+        with self.uftp.get_reader(source, offset, length) as (reader, _):
             if "-"==target:
                 total, duration = self.uftp.copy_data(reader, sys.stdout.buffer, length)
                 target="stdout"
@@ -221,8 +222,13 @@ class Worker():
                 with open(target, "r+b") as f:
                     if offset>0 and write_range:
                         f.seek(offset)
+                    elif not write_range:
+                        try:
+                            f.truncate(0)
+                        except OSError:
+                            # can happen if it is not a regular file, e.g. /dev/null
+                            pass
                     total, duration = self.uftp.copy_data(reader, f, length)
-            reader.close()
         self.base.log_usage(False, item, target, total, duration)
         self.uftp.finish_transfer()
         return "OK"
@@ -230,13 +236,11 @@ class Worker():
     def upload(self, endpoint, base_dir, item, target, offset, length, write_range=False):
         self.setup(endpoint, base_dir)
         remote_offset = offset if write_range else 0
-        with self.uftp.get_write_socket(target, remote_offset, length) as data_connection:
-            writer = self.base.wrap_writer(data_connection.makefile("wb", buffering=0))
+        with self.uftp.get_writer(target, remote_offset, length, write_range) as writer:
             with open(item, "rb") as f:
                 if offset>0:
                     f.seek(offset)
                 total, duration = self.uftp.copy_data(f, writer, length)
-            writer.close()
         self.uftp.finish_transfer()
         self.base.log_usage(True, item, target, total, duration)
         return "OK"
@@ -275,11 +279,10 @@ class RemoteCopy(pyuftp.base.CopyBase):
                 s_server = self.args.server
                 s_password = self.args.one_time_password
                 s_filename = s
-            offset, length = self._get_range()
+            offset, length, rw = self._get_range()
             t_endpoint, t_base_dir, t_filename  = self.parse_url(self.args.target)
             t_host, t_port, t_password = self.authenticate(t_endpoint, t_base_dir)
             with pyuftp.uftp.open(t_host, t_port, t_password) as uftp:
-                if offset>0 or length>-1:
-                    uftp._send_range(offset, length)
+                uftp.set_remote_write_range(offset, length, rw)
                 reply = uftp.receive_file(t_filename, s_filename, s_server, s_password)
                 self.verbose(reply)

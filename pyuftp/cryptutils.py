@@ -15,7 +15,7 @@ def create_cipher(key, algo):
     elif "AES".upper()==algo:
         if len(key)<32:
             raise ValueError("Key length must be >32 for encryption algorithm: %s" % algo)
-        key_length = len(key) - 16;
+        key_length = len(key) - 16
         if not key_length in [16,24,32]:
             raise ValueError("Illegal key length for encryption algorithm: %s" % algo)
         iv = key[:16]
@@ -36,14 +36,14 @@ class CryptWriter(object):
     def write(self, data):
         if len(self.stored)>0:
             data = self.stored + data
-        extra = divmod(len(data), self.block_length)[1];
+        extra = divmod(len(data), self.block_length)[1]
         if extra>0:
             crypted = self.cipher.encrypt(data[:-extra])
             self.stored = data[-extra:]
         else:
             crypted = self.cipher.encrypt(data)
             self.stored = b""
-        n = self.target.write(crypted)
+        self.target.write(crypted)
         return len(data)
 
     def flush(self):
@@ -54,11 +54,11 @@ class CryptWriter(object):
             return
         length = self.block_length - len(self.stored)
         padding = [length]*length
-        n = self.target.write(self.cipher.encrypt(self.stored + pack('b'*length, *padding)))
+        self.target.write(self.cipher.encrypt(self.stored + pack('b'*length, *padding)))
         self.target.flush()
         self._closed = True
         self.target.close()
-        
+
 class DecryptReader(object):
     
     def __init__(self, source, cipher):
@@ -68,12 +68,12 @@ class DecryptReader(object):
         self.block_length = self.cipher.block_size
 
     def read(self, length):
-        data = self.source.read(length)
+        data = self.source.read(max(length, self.block_length))
         finish = len(data)<length
         if len(self.stored)>0:
             data = self.stored + data
-        extra = divmod(len(data), self.block_length)[1];
-        if extra>0:
+        num_blocks, extra = divmod(len(data), self.block_length)
+        if num_blocks>0 and extra>0:
             decrypted = self.cipher.decrypt(data[:-extra])
             self.stored = data[-extra:]
             finish = False
@@ -85,8 +85,6 @@ class DecryptReader(object):
             return decrypted[:-padlength]
         else:
             return decrypted
-    
+
     def close(self):
         self.source.close()
-
-    

@@ -30,7 +30,9 @@ class TestCP(unittest.TestCase):
                     f"https://localhost:9000/rest/auth/TEST:/{remote_file}",
                     downloaded]
             cp.run(args)
-            h1 = self._hash_remote(remote_file)
+            self.assertEqual(os.stat(original).st_size, os.stat(downloaded).st_size,
+                             "Length of copied file does not match")
+            h1 = self._hash_local(original)
             h2 = self._hash_local(downloaded)
             self.assertEqual(h1, h2, "Copied files do not match")
 
@@ -54,6 +56,8 @@ class TestCP(unittest.TestCase):
                     f"https://localhost:9000/rest/auth/TEST:{remote_file}",
                     downloaded ]
             cp.run(args)
+            self.assertEqual(os.stat(original).st_size, os.stat(downloaded).st_size,
+                             "Length of copied file does not match")
             h1 = self._hash_remote(remote_file)
             h2 = self._hash_local(downloaded)
             self.assertEqual(h1, h2, "Copied files do not match")
@@ -93,11 +97,13 @@ class TestCP(unittest.TestCase):
                     original,
                     f"https://localhost:9000/rest/auth/TEST:/{remote_file}" ]
             cp.run(args)
+            self.assertTrue(cp.range_read_write)
             args = ["-v", "-u", "demouser:test123",
                     f"-B0-{part_length-1}-p",
                     original, 
                     f"https://localhost:9000/rest/auth/TEST:{remote_file}" ]
             cp.run(args)
+            self.assertTrue(cp.range_read_write)
             h1 = self._hash_local(original)
             h2 = self._hash_remote(remote_file)
             self.assertEqual(h1, h2, "Copied files do not match")

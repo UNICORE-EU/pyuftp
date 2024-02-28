@@ -1,7 +1,9 @@
 """
     Interacting with a UFTPD server (opening a session, listings, I/O, ...)
 """
-import ftplib, os, re, stat, sys, threading
+import ftplib, os, re, socket, stat, sys, threading
+from pyuftp.pconnector import PConnector
+import pyuftp.cryptutils
 
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
@@ -18,7 +20,7 @@ def open(host, port, password):
 
 class UFTP:
 
-    def __init__(self):
+    def __init__(self, number_of_streams=1, key=None, algo=None, compress=False):
         self.ftp = None
         self.uid = os.getuid()
         self.gid = os.getgid()
@@ -26,6 +28,10 @@ class UFTP:
         self.performance_display = None
         self.version_info = (0,0,0)
         self.info_str = ""
+        self.number_of_streams = number_of_streams
+        self.key = key
+        self.algo = algo
+        self.compress = compress
 
     def open_session(self, host, port, password):
         """open an FTP session at the given UFTP server"""
@@ -173,29 +179,95 @@ class UFTP:
         if self.ftp is not None:
             self.ftp.close()
 
-    def _send_range(self, offset, length, rfc=False):
+    def send_range(self, offset, length, rfc=False):
         end_byte = offset+length-1 if rfc else offset+length
         self.ftp.sendcmd(f"RANG {offset} {end_byte}")
 
-    def get_write_socket(self, path, offset=0, length=-1):
-        path = self.normalize(path)
-        try:
-            if offset>0 or length>-1:
-                self._send_range(offset, length)
-            return self.ftp.transfercmd("STOR %s" % path)
-        except ftplib.Error as e:
-            raise OSError(e)
+    def _send_allocate(self, length):
+        self.ftp.sendcmd(f"ALLO {length}")
 
-    def get_read_socket(self, path, offset=0, length=-1):
-        path = self.normalize(path)
+    def _negotiate_streams(self):
+        if self.number_of_streams>1:
+            resp = self.ftp.sendcmd(f"NOOP {self.number_of_streams}")
+            if resp.startswith("223"):
+                # adjust number of connections in case server has limited them
+                self.number_of_streams = int(resp.split(" ")[2])
+
+    def _open_data_connections(self) -> socket.socket:
+        self._negotiate_streams()
+        connections = []
+        for _ in range(0, self.number_of_streams):
+            host, port = self.ftp.makepasv()
+            connections.append(socket.create_connection((host, port), self.ftp.timeout,
+                                            source_address=self.ftp.source_address))
+        return connections
+
+    def set_remote_write_range(self, offset=0, length=-1, writePartial=False):
+        if length>-1 and writePartial:
+                self.send_range(offset, length)
+        elif length>-1:
+                self._send_allocate(length)
+
+    @contextmanager
+    def get_writer(self, path, offset=0, length=-1, writePartial=False):
+        try:
+            self.set_remote_write_range(offset, length, writePartial)
+            connections = self._open_data_connections()
+            if self.number_of_streams>1:
+                s = PConnector(outputs=connections, key=self.key, algo=self.algo, compress=self.compress)
+            else:
+                s = self._wrap_writer(connections[0])
+            self.ftp.sendcmd("STOR %s" % path)
+            yield s
+        finally:
+            s.close()
+            for c in connections:
+                try:
+                    c.close()
+                except:
+                    pass
+
+    def _wrap_writer(self, conn):
+        f = conn.makefile("wb")
+        if self.key is not None:
+                cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
+                f = pyuftp.cryptutils.CryptWriter(f, cipher)
+        return f
+    
+    @contextmanager
+    def get_reader(self, path, offset=0, length=-1):
         try:
             if offset>0 or length>-1:
-                self._send_range(offset, length)
-            return self.ftp.transfercmd("RETR %s" % path)
-        except ftplib.Error as e:
-            raise OSError(e)
+                self.send_range(offset, length)
+            connections = self._open_data_connections()
+            if self.number_of_streams>1:
+                s = PConnector(inputs=connections, key=self.key, algo=self.algo, compress=self.compress)
+            else:
+                s = self._wrap_reader(connections[0])
+            reply = self.ftp.sendcmd("RETR %s" % path)
+            if not reply.startswith("150"):
+                raise OSError("ERROR "+reply)
+            len = int(reply.split(" ")[2])
+            yield s, len
+        finally:
+            s.close()
+            for c in connections:
+                try:
+                    c.close()
+                except:
+                    pass
+
+    def _wrap_reader(self, conn):
+        f = conn.makefile("rb")
+        if self.key is not None:
+                cipher = pyuftp.cryptutils.create_cipher(self.key, self.algo)
+                f = pyuftp.cryptutils.DecryptReader(f, cipher)
+        return f
 
     def copy_data(self, source, target, num_bytes):
+        if self.number_of_streams>1:
+            # parallel connector expects this
+            self.buffer_size = 16384
         total = 0
         start_time = int(time())
         c = 0
@@ -206,11 +278,11 @@ class UFTP:
         while total<num_bytes:
             length = min(self.buffer_size, num_bytes-total)
             data = source.read(length)
-            if len(data)==0:
-                break
             to_write = len(data)
+            if to_write==0:
+                break
             write_offset = 0
-            while(to_write>0):
+            while to_write>0:
                 written = target.write(data[write_offset:])
                 if written is None:
                     written = 0
@@ -224,7 +296,7 @@ class UFTP:
             self.performance_display.finish(total)
         target.flush()
         return total, int(time()) - start_time
-
+ 
     def receive_file(self, local_file, remote_file, server, password):
         cmd = f"RECEIVE-FILE '{local_file}' '{remote_file}' '{server}' '{password}'"
         return self.ftp.sendcmd(cmd)
