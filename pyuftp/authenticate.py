@@ -10,18 +10,12 @@ except ImportError:
     pass
 
 from abc import ABCMeta, abstractmethod
-from base64 import b64encode
-from jwt import (
-    decode as jwt_decode,
-    encode as jwt_encode,
-    ExpiredSignatureError,
-)
+from base64 import b64encode, b64decode
+from jwt import encode as jwt_encode
 import datetime
+import json
 import requests
-from os import getenv
-from os.path import isabs
 
-import requests
 
 class AuthenticationFailedException(Exception):  # noqa N818
     """User authentication has failed."""
@@ -222,6 +216,28 @@ def authenticate(auth_url, credential, base_dir="", encryption_key = None, encry
             raise ValueError("Error authenticating. Reply: "+str(params))
     return get_connection_params(params)
 
+def issue_token(auth_url, credential, lifetime=-1, limited=False, renewable=False)->str:
+    """get a JWT token from the auth server"""
+    token_url = auth_url.split("/rest/auth")[0]+"/rest/auth/token"
+    params = {}
+    if lifetime>-1:
+        params["lifetime"] = lifetime
+    if limited:
+        params["limited"] = "true"
+    if renewable:
+        params["renewable"] = "true"
+    return get_string(token_url, credential, params)
+
+def show_token_details(token: str):
+    _p = token.split(".")[1]
+    _p += '=' * (-len(_p)%4) # padding
+    payload = json.loads(b64decode(_p))
+    print(f"Subject:      {payload['sub']}")
+    print(f"Lifetime (s): {payload['exp']-payload['iat']}")
+    print(f"Issued by:    {payload['iss']}")
+    print(f"Valid for:    {payload.get('aud', '<unlimited>')}")
+    print(f"Renewable:    {payload.get('renewable', 'no')}")
+
 def get_json(url, credential):
     _headers = {
         "Authorization": credential.get_auth_header(),
@@ -231,6 +247,15 @@ def get_json(url, credential):
         check_error(res)
         js = res.json()
     return js
+
+def get_string(url, credential, params: dict=None) ->  str:
+    _headers = {
+        "Authorization": credential.get_auth_header(),
+        "Accept": "text/plain",
+    }
+    with requests.get(headers=_headers, url=url, params=params, verify=False) as res:
+        check_error(res)
+        return res.text
 
 def get_connection_params(json_data):
     return json_data["serverHost"], json_data["serverPort"], json_data["secret"]

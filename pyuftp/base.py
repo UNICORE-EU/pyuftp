@@ -217,6 +217,38 @@ class Auth(Base):
         print(f"Connect to {host}:{port} password: {onetime_pwd}")
         return host, port, onetime_pwd
 
+class IssueToken(Base):
+
+    def add_command_args(self):
+        self.parser.prog = "pyuftp issue-token"
+        self.parser.description = self.get_synopsis()
+        self.parser.add_argument("authURL", help="Auth URL")
+        self.parser.add_argument("-l", "--lifetime", required=False, type=int, default=-1,
+                                 help="Initial lifetime (in seconds) for token.")
+        self.parser.add_argument("-R", "--renewable", required=False, action="store_true",
+                                 help="Token can be used to get a fresh token.")
+        self.parser.add_argument("-L", "--limited", required=False, action="store_true",
+                                 help="Token should be limited to the issuing server.")
+        self.parser.add_argument("-I", "--inspect", required=False, action="store_true",
+                                 help="Inspect the issued token.")
+
+    def get_synopsis(self):
+        return """Get a JWT token from the auth server"""
+
+    def run(self, args):
+        super().run(args)
+        endpoint, _, _ = self.parse_url(self.args.authURL)
+        if endpoint is None:
+            raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
+        token = pyuftp.authenticate.issue_token(auth_url=endpoint,
+                                                credential=self.credential,
+                                                lifetime=self.args.lifetime,
+                                                limited=self.args.limited,
+                                                renewable=self.args.renewable)
+        if self.args.inspect:
+            pyuftp.authenticate.show_token_details(token)
+        print(token)
+
 class CopyBase(Base):
 
     def add_base_args(self):

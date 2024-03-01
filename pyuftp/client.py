@@ -10,6 +10,7 @@ _commands = {
             "cp": pyuftp.cp.Copy,
             "find": pyuftp.utils.Find,
             "info": pyuftp.base.Info,
+            "issue-token": pyuftp.base.IssueToken,
             "ls": pyuftp.utils.Ls,
             "mkdir": pyuftp.utils.Mkdir,
             "rcp": pyuftp.cp.RemoteCopy,
