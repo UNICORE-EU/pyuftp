@@ -83,7 +83,7 @@ class Checksum(pyuftp.base.Base):
         self.parser.prog = "pyuftp checksum"
         self.parser.description = self.get_synopsis()
         self.parser.add_argument("remoteURL", help="Remote UFTP URL")
-        self.parser.add_argument("-a", "--algorithm", help="hash algorithm (MD5, SHA-1, SHA-256, SHA-512")
+        self.parser.add_argument("-a", "--algorithm", help="Hash algorithm to use (MD5, SHA-1, SHA-256, SHA-512")
     def get_synopsis(self):
         return """Remove a remote file/directory"""
 

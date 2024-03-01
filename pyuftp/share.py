@@ -11,17 +11,17 @@ class Share(pyuftp.base.Base):
         self.parser.add_argument("-s", "--server", default=os.getenv("UFTP_SHARE_URL"),
                                  help="URL to the share service e.g. <https://host:port/SITE/rest/share/NAME")
         self.parser.add_argument("-a", "--access",
-                                 help="allow access for the specified user")
+                                 help="Allow access for the specified user")
         self.parser.add_argument("-l", "--list", action="store_true",
-                            help="list shares")
+                            help="List shares")
         self.parser.add_argument("-w", "--write", action="store_true",
-                            help="allow write access to the shared path")
+                            help="Allow write access to the shared path")
         self.parser.add_argument("-d", "--delete", action="store_true",
-                            help="delete access to the shared path")
+                            help="Delete access to the shared path")
         self.parser.add_argument("-1", "--one-time", action="store_true",
-                            help="allow only one access to a share (one-time share)")
+                            help="Allow only one access to a share (one-time share)")
         self.parser.add_argument("-L", "--lifetime", type=int, default=0,
-                            help="limit lifetime of share (in seconds)")
+                            help="Limit lifetime of share (in seconds)")
         self.parser.add_argument("path", help="shared path", nargs="?", default=None)
 
     def get_synopsis(self):
@@ -65,7 +65,7 @@ class Share(pyuftp.base.Base):
         if _onetime:
             req['onetime']="true"
         if _lifetime>0:
-            req['lifetime']=str(lifetime)
+            req['lifetime']=str(_lifetime)
         location = pyuftp.authenticate.post_json(self.server, self.credential, req, as_json=False)
         if not _delete:
             _info = pyuftp.authenticate.get_json(location, self.credential)

@@ -29,12 +29,13 @@ class Base:
         self.parser.add_argument("-v", "--verbose",
                             required=False,
                             action="store_true",
-                            help="be verbose")
-        self.parser.add_argument("-A", "--auth-token", help="bearer token value")
-        self.parser.add_argument("-u", "--user", help="authentication: username[:password]")
-        self.parser.add_argument("-P", "--password", action="store_true",
-                            help="interactively query for password")
-        self.parser.add_argument("-i", "--identity", help="authentication: private key file")
+                            help="Be verbose")
+        auth_opts = self.parser.add_argument_group("Authentication")
+        auth_opts.add_argument("-A", "--auth-token", help="Bearer token value")
+        auth_opts.add_argument("-u", "--user", help="Username[:password]")
+        auth_opts.add_argument("-P", "--password", action="store_true",
+                            help="Interactively query for password")
+        auth_opts.add_argument("-i", "--identity", help="Private key file")
 
     def add_command_args(self):
         pass
@@ -253,12 +254,13 @@ class CopyBase(Base):
 
     def add_base_args(self):
         Base.add_base_args(self)
-        self.parser.add_argument("-B", "--bytes", help="Byte range: range_spec", required=False)
-        self.parser.add_argument("-E", "--encrypt", required=False, action="store_true",
+        group = self.parser.add_argument_group("Transfer options")
+        group.add_argument("-B", "--bytes", help="Byte range: range_spec", required=False)
+        group.add_argument("-E", "--encrypt", required=False, action="store_true",
                                  help="Encrypt data connections")
-        self.parser.add_argument("-n", "--streams", required=False, type=int, default=1,
+        group.add_argument("-n", "--streams", required=False, type=int, default=1,
                                  help="Number of TCP streams per connection/thread")
-        self.parser.add_argument("-C", "--compress", required=False, action="store_true",
+        group.add_argument("-C", "--compress", required=False, action="store_true",
                                  help="Compress data for transfer")
 
     def run(self, args):
