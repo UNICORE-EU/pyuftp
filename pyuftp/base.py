@@ -36,6 +36,7 @@ class Base:
         auth_opts.add_argument("-P", "--password", action="store_true",
                             help="Interactively query for password")
         auth_opts.add_argument("-i", "--identity", help="Private key file")
+        auth_opts.add_argument("-O", "--oidc-agent", help="Use oidc-agent with the specified account")
 
     def add_command_args(self):
         pass
@@ -65,6 +66,8 @@ class Base:
         password = None
         identity = self.args.identity
         token  = self.args.auth_token
+        oidc_account = self.args.oidc_agent
+
         if self.args.user:
             if ":" in self.args.user:
                 username, password = self.args.user.split(":",1)
@@ -85,7 +88,7 @@ class Base:
             else:
                 password = _p
         try:
-            self.credential = pyuftp.authenticate.create_credential(username, password, token, identity)
+            self.credential = pyuftp.authenticate.create_credential(username, password, token, identity, oidc_account)
         except ValueError as e:
             if self.args.identity is not None and password is None:
                 password = self.password_source(pwd_prompt)    

@@ -12,10 +12,11 @@ except ImportError:
 from abc import ABCMeta, abstractmethod
 from base64 import b64encode, b64decode
 from jwt import encode as jwt_encode
+from os import getenv
 import datetime
 import json
 import requests
-
+import socket
 
 class AuthenticationFailedException(Exception):  # noqa N818
     """User authentication has failed."""
@@ -132,6 +133,55 @@ class JWTToken(Credential):
 
     __str__ = __repr__
 
+class OIDCAgentToken(Credential):
+    """
+    Produces a header value "Bearer <auth_token>"
+    getting the token from a running OIDC Agent (https://github.com/indigo-dc/oidc-agent)
+
+    Args:
+        account_name: the account name to use
+    """
+
+    _OIDC_AGENT_SOCK = "OIDC_SOCK"
+
+    def __init__(self, account_name):
+        self.account_name = account_name
+        self.token = None
+
+    def get_auth_header(self):
+        if not self.token:
+            self.token = self.get_token()
+        return "Bearer " + self.token
+
+    def get_token(self)->str:
+        req = {"request": "access_token", "account": self.account_name}
+        response = json.loads(self.message_agent(json.dumps(req)))
+        success = response.get("status", "").lower() == "success"
+        if success:
+            return response["access_token"]
+        else:
+            error_msg = response.get("error", json.dumps(response))
+            raise IOError("Error: "+error_msg)
+
+    def is_agent_available(self)->bool:
+        return getenv(self._OIDC_AGENT_SOCK) is not None
+
+    def message_agent(self, data: str)->str:
+        if not self.is_agent_available():
+            raise IOError("OIDC agent is not available")
+        with socket.socket(family=socket.AF_UNIX, type=socket.SOCK_STREAM) as ap:
+            ap.connect(getenv(self._OIDC_AGENT_SOCK))
+            f = ap.makefile("rwb")
+            f.write(bytes(data, "UTF-8"))
+            f.flush()
+            reply = f.read(4096)
+            return str(reply, "UTF-8")
+
+    def __repr__(self):
+        return f"OIDC"
+    __str__ = __repr__
+
+
 class Anonymous(Credential):
     """
     Anonymous access - no auth header at all
@@ -145,7 +195,8 @@ class Anonymous(Credential):
 
     __str__ = __repr__
 
-def create_credential(username=None, password=None, token=None, identity=None):
+
+def create_credential(username=None, password=None, token=None, identity=None, oidc_agent_account=None):
     """Helper to create the most common types of credentials
 
     Requires one of the following combinations of arguments
@@ -154,8 +205,11 @@ def create_credential(username=None, password=None, token=None, identity=None):
     token               ; create a OIDCToken credential from the given token
     username + identity : create a JWTToken credential which will be signed
                           with the given private key (ssh key or PEM)
+    oidc_agent_account  : ask a running OIDC agent for a token to authenticate with
     """
 
+    if oidc_agent_account is not None:
+        return OIDCAgentToken(oidc_agent_account)
     if token is not None:
         return OIDCToken(token)
     if token is None and identity is None:
