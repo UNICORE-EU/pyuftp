@@ -31,12 +31,15 @@ class Base:
                             action="store_true",
                             help="Be verbose")
         auth_opts = self.parser.add_argument_group("Authentication")
-        auth_opts.add_argument("-A", "--auth-token", help="Bearer token value")
+        auth_opts.add_argument("-A", "--auth-token", metavar="TOKEN",
+                               help="Bearer token value")
         auth_opts.add_argument("-u", "--user", help="Username[:password]")
         auth_opts.add_argument("-P", "--password", action="store_true",
                             help="Interactively query for password")
-        auth_opts.add_argument("-i", "--identity", help="Private key file")
-        auth_opts.add_argument("-O", "--oidc-agent", help="Use oidc-agent with the specified account")
+        auth_opts.add_argument("-i", "--identity", metavar="KEYFILE",
+                               help="Private key file")
+        auth_opts.add_argument("-O", "--oidc-agent", metavar="ACCOUNT",
+                               help="Use oidc-agent with the specified account")
 
     def add_command_args(self):
         pass
@@ -258,13 +261,14 @@ class CopyBase(Base):
     def add_base_args(self):
         Base.add_base_args(self)
         group = self.parser.add_argument_group("Transfer options")
-        group.add_argument("-B", "--bytes", help="Byte range: range_spec", required=False)
+        group.add_argument("-B", "--bytes", metavar="BYTERANGE",
+                            help="Byte range: range_spec", required=False)
         group.add_argument("-E", "--encrypt", required=False, action="store_true",
-                                 help="Encrypt data connections")
+                            help="Encrypt data connections")
         group.add_argument("-n", "--streams", required=False, type=int, default=1,
-                                 help="Number of TCP streams per connection/thread")
+                            help="Number of TCP streams per connection/thread")
         group.add_argument("-C", "--compress", required=False, action="store_true",
-                                 help="Compress data for transfer")
+                            help="Compress data for transfer")
 
     def run(self, args):
         super().run(args)
