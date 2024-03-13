@@ -17,7 +17,7 @@ Commands include
 * cp            - Download/upload file(s)
 * find          - List all files in a remote directory
 * info          - Gets info about the remote server
-* issues-token  - Get an authentication token from the Auth server
+* issue-token   - Get an authentication token from the Auth server
 * ls            - List a remote directory
 * mkdir         - Create a remote directory
 * rcp           - Server-server copy
@@ -52,3 +52,19 @@ will be installed in
 
 and should be picked up automatically by Bash completion and loaded
 when you start a new shell.
+
+
+## Usage
+
+The commandline syntax is (mostly) the same as the Java version, have a look at the
+[documentation](https://uftp-docs.readthedocs.io/en/latest/user-docs/uftp-client/index.html).
+
+Try
+
+  pyuftp --help
+
+for a list of commands, and
+
+  pyuftp <command> --help
+
+to see the built-in help for each command.
