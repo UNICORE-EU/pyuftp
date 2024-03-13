@@ -4,7 +4,7 @@ from subprocess import Popen, PIPE, STDOUT
 import re
 
 TEMPLATE = "pyuftp_bash_completion.template"
-OUTPUT = "pyuftp_bash_completion.sh"
+OUTPUT = "pyuftp"
 
 CMD = "pyuftp"
 

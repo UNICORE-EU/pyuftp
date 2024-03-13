@@ -9,12 +9,8 @@ long_description = (this_directory / "README.md").read_text()
 
 python_requires = ">=3.7"
 
-install_requires = [
-    "requests>=2.5.1",
-    "pyjwt[crypto]>=2.8.0",
-    "bcrypt>=4.0.0",
-    "pycryptodome>=3.20.0"
-]
+with open("requirements.txt", "r") as f:
+    install_requires = f.readlines()
 
 extras_require = {}
 
@@ -36,6 +32,9 @@ setup(
             "pyuftp=pyuftp.client:main",
         ],
     },
+    data_files=[
+        ("share/bash-completion/completions", [ "extras/pyuftp" ])
+    ],
     license="License :: OSI Approved :: BSD",
     url="https://github.com/UNICORE-EU/pyuftp",
 )

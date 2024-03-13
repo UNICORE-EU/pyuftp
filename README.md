@@ -17,6 +17,7 @@ Commands include
 * cp            - Download/upload file(s)
 * find          - List all files in a remote directory
 * info          - Gets info about the remote server
+* issues-token  - Get an authentication token from the Auth server
 * ls            - List a remote directory
 * mkdir         - Create a remote directory
 * rcp           - Server-server copy
@@ -27,4 +28,27 @@ Commands include
 
 Install from PyPI with
 
-    pip install -U pyuftp
+    python3 -m pip install -U pyuftp
+
+### Commandline completion
+
+PyUFTP comes with a commandline completion script for Bash, but
+due to the limitations of a Python-based install, it might not get
+picked up automatically.
+
+If installing in a virtual environment (venv), you need
+to load it manually:
+
+    source $VIRTUAL_ENV/share/bash-completion/pyuftp
+
+You can also add this line to the venv activation script:
+
+    echo ". $VIRTUAL_ENV/share/bash-completion/pyuftp" >> $VIRTUAL_ENV/bin/activate
+
+When installing outside of a virtual environment, the completion script
+will be installed in 
+
+    ~/.local/share/bash-completion/completions/pyuftp
+
+and should be picked up automatically by Bash completion and loaded
+when you start a new shell.
