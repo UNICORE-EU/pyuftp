@@ -61,10 +61,10 @@ The commandline syntax is (mostly) the same as the Java version, have a look at 
 
 Try
 
-  pyuftp --help
+    pyuftp --help
 
 for a list of commands, and
 
-  pyuftp <command> --help
+    pyuftp <command> --help
 
 to see the built-in help for each command.
