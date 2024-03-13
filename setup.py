@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from platform import system
 from setuptools import find_packages
 from setuptools import setup
 import versioneer
@@ -13,6 +14,10 @@ with open("requirements.txt", "r") as f:
     install_requires = f.readlines()
 
 extras_require = {}
+
+data_files = []
+if system()!="Windows":
+    data_files.append(("share/bash-completion/completions", [ "extras/pyuftp" ]))
 
 setup(
     name="pyuftp",
@@ -32,9 +37,7 @@ setup(
             "pyuftp=pyuftp.client:main",
         ],
     },
-    data_files=[
-        ("share/bash-completion/completions", [ "extras/pyuftp" ])
-    ],
+    data_files=data_files,
     license="License :: OSI Approved :: BSD",
     url="https://github.com/UNICORE-EU/pyuftp",
 )
