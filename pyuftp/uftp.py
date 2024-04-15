@@ -320,7 +320,7 @@ class FileInfo:
             self.is_dir = tok[0].startswith("d")
             self.perm = tok[0]
             self.size = int(tok[1])
-            self.mtime= int(tok[2])
+            self.mtime= int(tok[2]) / 1000
             self.path = tok[3]
     
     def can_write(self):

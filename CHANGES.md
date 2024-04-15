@@ -3,6 +3,10 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.0.1
+-------------
+ - fix: "ls" output had wrong modification times
+
 Version 1.0.0
 -------------
  - first complete version including the following commands:
