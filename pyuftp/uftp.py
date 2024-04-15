@@ -333,11 +333,14 @@ class FileInfo:
         return "r" in self.perm
     
     def __repr__(self):
+        return self.as_ls(20)
+
+    def as_ls(self, width=20):
         if self.mtime < int(time())-15811200:
             udate = strftime("%b %d %Y", localtime(self.mtime))
         else:
             udate = strftime("%b %d %H:%M", localtime(self.mtime))
-        return f"{self.perm} {self.size:20} {udate} {self.path}"
+        return f"{self.perm} {self.size:{width}} {udate} {self.path}"
 
     __str__ = __repr__
 

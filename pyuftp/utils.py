@@ -26,8 +26,12 @@ class Ls(pyuftp.base.Base):
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
-            for entry in uftp.listdir(file_name):
-                print(entry)
+            entries = uftp.listdir(file_name)
+            width = 1
+            for entry in entries:
+                width = max(width, len(str(entry.size)))
+            for entry in entries:
+                print(entry.as_ls(width))
 
 
 class Mkdir(pyuftp.base.Base):
