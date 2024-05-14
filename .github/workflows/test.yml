@@ -38,5 +38,5 @@ jobs:
         make pytest
     - name: Build
       run: |
-        pip install .
-
+        python setup.py sdist
+        pip install dist/pyuftp-*.tar.gz
