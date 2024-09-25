@@ -33,18 +33,18 @@ class Copy(pyuftp.base.CopyBase):
         self.resume = self.args.resume and not self.args.target=="-"
         if self.resume:
             self.verbose("Resume mode = True")
-        self.show_performance = self.args.show_performance
-        if self.show_performance:
-            self.verbose("Performance display = True")
-            self.performance_display = pyuftp.uftp.PerformanceDisplay(self.number_of_threads)
-        else:
-            self.performance_display = None
         self.number_of_threads = self.args.threads
         if self.number_of_threads>1:
             self.verbose(f"Number of threads = {self.number_of_threads}")
             self.thread_storage = threading.local()
             self.executor = ThreadPoolExecutor(max_workers=self.number_of_threads,
                                                 thread_name_prefix="Thread")
+        self.show_performance = self.args.show_performance
+        if self.show_performance:
+            self.verbose("Performance display = True")
+            self.performance_display = pyuftp.uftp.PerformanceDisplay(self.number_of_threads)
+        else:
+            self.performance_display = None
         endpoint, _, _ = self.parse_url(self.args.target)
         for s in self.args.source:
             self.verbose(f"Copy {s} --> {self.args.target}")
@@ -172,7 +172,7 @@ class Copy(pyuftp.base.CopyBase):
                         f = self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).upload, *args)
 
 class Worker():
-    """ performs uploads/downloads, suselfitable for running in a pool thread """
+    """ performs uploads/downloads, suitable for running in a pool thread """
     def __init__(self, base_command: Copy, thread_local=None, uftp: pyuftp.uftp.UFTP=None, performance_display=None):
         self.base = base_command
         self.thread_storage = thread_local
