@@ -53,7 +53,7 @@ class UsernamePassword(Credential):
         return "Basic " + b64encode(bytes(t, "ascii")).decode("ascii")
     
     def __repr__(self):
-        return f"USERNAME"
+        return "USERNAME"
 
     __str__ = __repr__
 
@@ -77,7 +77,7 @@ class OIDCToken(Credential):
         return "Bearer " + self.token
 
     def __repr__(self):
-        return f"OIDC"
+        return "OIDC"
 
     __str__ = __repr__
 
@@ -90,7 +90,7 @@ class JWTToken(Credential):
     Args:
         subject - the subject user name or user X.500 DN
         issuer - the issuer of the token
-        secret - a private key or
+        secret - a private key
         algorithm - signing algorithm
 
         lifetime - token validity time in seconds
@@ -129,7 +129,7 @@ class JWTToken(Credential):
         return "Bearer " + self.create_token()
 
     def __repr__(self):
-        return f"JWT"
+        return "JWT"
 
     __str__ = __repr__
 
@@ -178,7 +178,7 @@ class OIDCAgentToken(Credential):
             return str(reply, "UTF-8")
 
     def __repr__(self):
-        return f"OIDC"
+        return "OIDC"
     __str__ = __repr__
 
 
@@ -191,7 +191,7 @@ class Anonymous(Credential):
         return None
     
     def __repr__(self):
-        return f"ANONYMOUS"
+        return "ANONYMOUS"
 
     __str__ = __repr__
 
@@ -286,7 +286,11 @@ def show_token_details(token: str):
     _p = token.split(".")[1]
     _p += '=' * (-len(_p)%4) # padding
     payload = json.loads(b64decode(_p))
-    print(f"Subject:      {payload['sub']}")
+    sub = payload['sub']
+    uid = payload.get('uid')
+    if uid:
+        sub = "%s (uid=%s)" % (sub, uid)
+    print(f"Subject:      {sub}")
     print(f"Lifetime (s): {payload['exp']-payload['iat']}")
     print(f"Issued by:    {payload['iss']}")
     print(f"Valid for:    {payload.get('aud', '<unlimited>')}")
@@ -311,7 +315,7 @@ def get_string(url, credential, params: dict=None) ->  str:
         check_error(res)
         return res.text
 
-def get_connection_params(json_data):
+def get_connection_params(json_data) -> tuple[str, str, str]:
     return json_data["serverHost"], json_data["serverPort"], json_data["secret"]
 
 def post_json(url, credential, json_data, as_json = True):
@@ -338,5 +342,4 @@ def check_error(res):
         msg = f"{res.status_code} Server Error: {reason} for url: {res.url}"
         raise requests.HTTPError(msg, response=res)
     else:
-        res.raise_for_status()  
-
+        res.raise_for_status()

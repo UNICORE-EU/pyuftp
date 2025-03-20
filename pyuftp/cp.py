@@ -169,7 +169,7 @@ class Copy(pyuftp.base.CopyBase):
                         uftp.performance_display = self.performance_display
                         Worker(self, uftp=uftp).upload(*args)
                     else:
-                        f = self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).upload, *args)
+                        self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).upload, *args)
 
 class Worker():
     """ performs uploads/downloads, suitable for running in a pool thread """

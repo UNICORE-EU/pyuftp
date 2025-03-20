@@ -44,7 +44,7 @@ class Base:
     def add_command_args(self):
         pass
 
-    def authenticate(self, endpoint, base_dir):
+    def authenticate(self, endpoint, base_dir) -> tuple[str, str, str]:
         """ authenticate
         Args:
            endpoint - UFTP auth URL
@@ -99,7 +99,7 @@ class Base:
             else:
                 raise e
 
-    def parse_url(self, url):
+    def parse_url(self, url)-> tuple[str, str, str]:
         """ 
         parses the given URL and returns a tuple consisting of
          - auth endpoint URL (or None if URL is not a http(s) URL)

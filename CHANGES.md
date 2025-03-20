@@ -3,6 +3,18 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.0.3
+-------------
+ - fix: key-based authentication with password did not work correctly
+   (leading to a 403 error)
+ - fix: "cp -D ..." led to errors
+ - improvement: 'Ä'issue-token': show asserted uid, if any
+
+
+Version 1.0.2
+-------------
+ - fix: requirements.txt was missing in distribution
+
 Version 1.0.1
 -------------
  - fix: "ls" output had wrong modification times
