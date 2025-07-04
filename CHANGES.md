@@ -3,6 +3,10 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.0.4
+-------------
+ - fix: pyuftp did not work under Windows
+
 Version 1.0.3
 -------------
  - fix: key-based authentication with password did not work correctly

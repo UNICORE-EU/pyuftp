@@ -22,8 +22,12 @@ class UFTP:
 
     def __init__(self, number_of_streams=1, key=None, algo=None, compress=False):
         self.ftp = None
-        self.uid = os.getuid()
-        self.gid = os.getgid()
+        if hasattr(os, "getuid"):
+            self.uid = os.getuid()
+            self.gid = os.getgid()
+        else:
+            self.uid = 1000
+            self.gid = 1000
         self.buffer_size = 65536
         self.performance_display = None
         self.version_info = (0,0,0)
