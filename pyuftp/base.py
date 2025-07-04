@@ -123,6 +123,12 @@ class Base:
             endpoint = f"{parsed.scheme}://{parsed.netloc}{service_path}"
         return endpoint, basedir, filename
 
+    def normalize_path(self, path):
+        p = os.path.normpath(path)
+        while p.startswith("//"):
+            p = p[1:]
+        return p
+
     def verbose(self, msg):
         if self.is_verbose:
             print(msg)

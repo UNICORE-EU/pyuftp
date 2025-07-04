@@ -83,7 +83,7 @@ class Copy(pyuftp.base.CopyBase):
             for (item, remote_size) in pyuftp.utils.crawl_remote(uftp, ".", file_name, recurse=self.args.recurse):
                 offset, length, rw = self._get_range()
                 if os.path.isdir(local):
-                    target = os.path.normpath(local+"/"+item)
+                    target = self.normalize_path(local+"/"+item)
                     local_dir = os.path.dirname(target)
                     if len(local_dir)>0 and not os.path.isdir(local_dir):
                         os.makedirs(local_dir, mode=0o755, exist_ok=True)
@@ -147,7 +147,7 @@ class Copy(pyuftp.base.CopyBase):
                 for item in pyuftp.utils.crawl_local(local_base_dir, file_pattern, recurse=self.args.recurse):
                     rel_path = os.path.relpath(item, local_base_dir)
                     if remote_is_directory:
-                        target = os.path.normpath(remote_file_name+"/"+rel_path)
+                        target = self.normalize_path(remote_file_name+"/"+rel_path)
                     else:
                         target = remote_file_name
                     if target.startswith("/"):

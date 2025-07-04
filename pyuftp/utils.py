@@ -6,6 +6,7 @@ import pyuftp.base, pyuftp.uftp
 
 import fnmatch, os, os.path, stat, zlib
 
+
 class Ls(pyuftp.base.Base):
     
     def add_command_args(self):
@@ -140,13 +141,10 @@ class Find(pyuftp.base.Base):
                     uftp.cwd(base)
                 else:
                     pattern = file_name
-            if base_dir=="/":
-                # to clean-up the output since normpath does not collapse two leading '/'
-                base_dir = ""
             for (entry, _) in crawl_remote(uftp, base, pattern,
                                            all=self.args.recurse,
                                            files_only=self.args.files_only):
-                print(os.path.normpath(base_dir+"/"+entry))
+                print(self.normalize_path(base_dir+"/"+entry))
 
 
 _factors = {"k":1024, "m":1024*1024, "g":1024*1024*1024}
