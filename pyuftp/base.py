@@ -92,7 +92,7 @@ class Base:
                 password = _p
         try:
             self.credential = pyuftp.authenticate.create_credential(username, password, token, identity, oidc_account)
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             if self.args.identity is not None and password is None:
                 password = self.password_source(pwd_prompt)    
                 self.credential = pyuftp.authenticate.create_credential(username, password, token, identity)
