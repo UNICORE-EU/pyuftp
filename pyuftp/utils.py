@@ -100,11 +100,12 @@ class Checksum(pyuftp.base.Base):
         if file_name is None:
             file_name = "."
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
-        self.verbose(f"Connecting to UFTPD {host}:{port}")
+        self.verbose(f"Connecting to UFTPD {host}:{port} base_dir={base_dir}")
         _hash = ""
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            root_dir = base_dir if len(base_dir)>0 else "/"
             for (entry, _) in crawl_remote(uftp, base_dir, file_name):
-                entry = os.path.relpath(entry, base_dir)
+                entry = os.path.relpath(entry, root_dir)
                 _hash, _f = uftp.checksum(entry, self.args.algorithm)
                 print(_hash, _f)
             return _hash
@@ -130,6 +131,8 @@ class Find(pyuftp.base.Base):
         endpoint, base_dir, file_name = self.parse_url(self.args.remoteURL)
         if endpoint is None:
             raise ValueError(f"Does not seem to be a valid URL: {self.args.authURL}")
+        if not file_name:
+            file_name = ''
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:

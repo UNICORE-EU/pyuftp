@@ -8,15 +8,7 @@ import pyuftp.cryptutils, pyuftp.utils
 from sys import maxsize
 from time import localtime, mktime, strftime, strptime, time
 from contextlib import contextmanager
-
-@contextmanager
-def open(host, port, password):
-    uftp = UFTP()
-    uftp.open_session(host, port, password)
-    try:
-        yield uftp
-    finally:
-        uftp.close()
+from typing import Generator, Any
 
 class UFTP:
 
@@ -43,19 +35,19 @@ class UFTP:
         self.ftp.connect(host, port)
         self.ftp.login("anonymous", password)
         try:
-            ptrn = re.compile("220 UFTPD (.*),.*")
-            ver_info_str = ptrn.search(self.ftp.getwelcome()).group(1)
+            _p = re.compile("220 UFTPD (.*),.*")
+            ver_info_str = _p.search(self.ftp.getwelcome()).group(1)
             self.version_info = tuple(map(int, (ver_info_str.split("."))))
             self.info_str = ver_info_str
         except:
             pass
-            
+
     __perms = {"r": stat.S_IRUSR, "w": stat.S_IWUSR, "x": stat.S_IXUSR}
     __type = {"file": stat.S_IFREG, "dir": stat.S_IFDIR}
-  
+
     def info(self):
         return self.info_str
-        
+
     def normalize(self, path):
         if path is not None:
             if path.startswith("/"):
@@ -103,7 +95,7 @@ class UFTP:
         st["st_mtime"] = ttime
         st["st_atime"] = ttime
         return st
-    
+
     def is_dir(self, path):
         """ return True if path exists and is a directory """
         path = self.normalize(path)
@@ -194,7 +186,7 @@ class UFTP:
         if self.number_of_streams>1:
             resp = self.ftp.sendcmd(f"NOOP {self.number_of_streams}")
             if resp.startswith("223"):
-                # adjust number of connections in case server has limited them
+                # adjust number of streams in case server has limited them
                 self.number_of_streams = int(resp.split(" ")[2])
 
     def _open_data_connections(self) -> socket.socket:
@@ -304,14 +296,23 @@ class UFTP:
             self.performance_display.finish(total)
         target.flush()
         return total, int(time()) - start_time
- 
+
     def receive_file(self, local_file, remote_file, server, password):
         cmd = f"RECEIVE-FILE '{local_file}' '{remote_file}' '{server}' '{password}'"
         return self.ftp.sendcmd(cmd)
 
     def finish_transfer(self):
         self.ftp.voidresp()
-    
+
+@contextmanager
+def open(host, port, password) -> Generator[UFTP, Any, Any]:
+    uftp = UFTP()
+    uftp.open_session(host, port, password)
+    try:
+        yield uftp
+    finally:
+        uftp.close()
+
 class FileInfo:
     def __init__(self, ls_line = None):
         self.path = None
@@ -326,7 +327,7 @@ class FileInfo:
             self.size = int(tok[1])
             self.mtime= int(tok[2]) / 1000
             self.path = tok[3]
-    
+
     def can_write(self):
         return "w" in self.perm
 
@@ -335,7 +336,7 @@ class FileInfo:
 
     def can_read(self):
         return "r" in self.perm
-    
+
     def __repr__(self):
         return self.as_ls(20)
 
@@ -348,18 +349,19 @@ class FileInfo:
 
     __str__ = __repr__
 
+
 class PerformanceDisplay:
     def __init__(self, number_of_threads):
         self.started_at = [None] * number_of_threads
         self.size = [None] * number_of_threads
         self.have = [None] * number_of_threads
         self.rate = [None] * number_of_threads
-	
+
     def start(self):
         i = self.thread_index()
         self.started_at[i] = int(time())
 
-    def thread_index(self):
+    def thread_index(self) -> int:
         n = threading.current_thread().name.split("_")
         if len(n)>1:
             return int(n[-1])

@@ -221,6 +221,8 @@ def create_credential(username=None, password=None, token=None, identity=None, o
         raise AuthenticationFailedException("Not enough info to create user credential")
     try:
         from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
+        from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
         pem = open(identity).read()
         pem_bytes = bytes(pem, "UTF-8")
         if password is not None and len(password) > 0:
@@ -234,9 +236,9 @@ def create_credential(username=None, password=None, token=None, identity=None, o
         secret = private_key
         sub = username
         algo = "EdDSA"
-        if "BEGIN RSA" in pem:
+        if isinstance(private_key, RSAPrivateKey):
             algo = "RS256"
-        elif "BEGIN EC" in pem or "PuTTY" in pem:
+        elif isinstance(private_key, EllipticCurvePrivateKey) or "PuTTY" in pem:
             algo = "ES256"
         return JWTToken(sub, sub, secret, algorithm=algo, etd=False)
     except ImportError:

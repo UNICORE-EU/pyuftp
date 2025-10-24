@@ -24,6 +24,7 @@ class Base:
         self.algo = None
         self.compress = False
         self.number_of_streams = 1
+        self.debug = os.getenv("PYUFTP_DEBUG", "false").lower() in ["1", "true"] 
 
     def add_base_args(self):
         self.parser.add_argument("-v", "--verbose",
@@ -166,12 +167,22 @@ class Info(Base):
                     continue
                 auth_url = reply[name]["href"]
                 self.server_info[name] = {"url": auth_url}
-                host, port, onetime_pwd = pyuftp.authenticate.authenticate(auth_url, self.credential)
-                print(f"Connecting to UFTPD '{name}' at {host}:{port}")
-                with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
-                    print(f" * v{uftp.info()}")
-                    self.server_info[name]["version"] = uftp.version_info
-    
+                try:
+                    host, port, onetime_pwd = pyuftp.authenticate.authenticate(auth_url, self.credential)
+                    try:
+                        with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+                            print(f"Connected to UFTPD '{name}' at {host}:{port}")
+                            print(f" * UTFPD server version {uftp.info()}")
+                            self.server_info[name]["version"] = uftp.version_info
+                            try:
+                                uftp.listdir(".")
+                            except Exception as e:
+                                print(f"ERROR: opening UFTP data connection failed:", str(e))
+                    except Exception as e:
+                        print(f"ERROR: connecting to UFTPD '{name}' at {host}:{port}:", str(e))
+                except Exception as e:
+                    print(f"ERROR: UFTPD server '{name}' unavailable.")
+
     def show_info(self, reply, auth_url):
         print(f"Client identity:    {reply['client']['dn']}")
         print(f"Client auth method: {self.credential}")

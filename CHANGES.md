@@ -3,6 +3,12 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.0.5
+-------------
+ - fix: "checkum" with relative path (e.g. "authurl:test.txt") did not work
+ - fix: "find" with empty path (e.g. "authurl:") did not work
+ - fix: using non-EdDSA keys did not correctly set the JWT signing algorithm
+
 Version 1.0.4
 -------------
  - fix: pyuftp did not work under Windows
@@ -12,8 +18,7 @@ Version 1.0.3
  - fix: key-based authentication with password did not work correctly
    (leading to a 403 error)
  - fix: "cp -D ..." led to errors
- - improvement: 'Ä'issue-token': show asserted uid, if any
-
+ - improvement: 'issue-token --inspect': show asserted uid, if any
 
 Version 1.0.2
 -------------
