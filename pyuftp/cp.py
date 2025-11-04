@@ -3,9 +3,9 @@
 import pyuftp.base, pyuftp.uftp, pyuftp.utils
 import os, os.path, pathlib, sys, threading
 from concurrent.futures import ThreadPoolExecutor
-    
+
 class Copy(pyuftp.base.CopyBase):
-    
+
     def add_command_args(self):
         self.parser.prog = "pyuftp cp"
         self.parser.description = self.get_synopsis()
@@ -21,7 +21,7 @@ class Copy(pyuftp.base.CopyBase):
                                  help="Check existing target file(s) and try to resume")
         self.parser.add_argument("-D", "--show-performance", required=False, action="store_true",
                                  help="Show detailed transfer rates during the transfer")
-    
+
     def get_synopsis(self):
         return """Copy file(s)"""
 

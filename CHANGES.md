@@ -3,6 +3,11 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.0.6
+-------------
+ - fix: add option "-X", "--client" to explicitely set the client IP for the
+   authentication request
+
 Version 1.0.5
 -------------
  - fix: "checkum" with relative path (e.g. "authurl:test.txt") did not work

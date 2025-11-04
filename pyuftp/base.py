@@ -24,6 +24,7 @@ class Base:
         self.algo = None
         self.compress = False
         self.number_of_streams = 1
+        self.client_ip_list = None
         self.debug = os.getenv("PYUFTP_DEBUG", "false").lower() in ["1", "true"] 
 
     def add_base_args(self):
@@ -31,6 +32,9 @@ class Base:
                             required=False,
                             action="store_true",
                             help="Be verbose")
+        self.parser.add_argument("-X", "--client",
+                            required=False,
+                            help="Client IP address: address list")
         auth_opts = self.parser.add_argument_group("Authentication")
         auth_opts.add_argument("-A", "--auth-token", metavar="TOKEN",
                                help="Bearer token value")
@@ -55,11 +59,13 @@ class Base:
         """
         self.verbose(f"Authenticating at {endpoint}, base dir: '{base_dir}'")
         return pyuftp.authenticate.authenticate(endpoint, self.credential, base_dir,
-                                                self.encoded_key, self.algo, self.number_of_streams, self.compress)
+                                                self.encoded_key, self.algo, self.number_of_streams, self.compress,
+                                                self.client_ip_list, self.debug)
 
     def run(self, args):
         self.args = self.parser.parse_args(args)
         self.is_verbose = self.args.verbose
+        self.client_ip_list = self.args.client
         self.create_credential()
 
     def get_synopsis(self):

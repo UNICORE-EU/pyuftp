@@ -247,7 +247,7 @@ def create_credential(username=None, password=None, token=None, identity=None, o
         )
 
 def authenticate(auth_url, credential, base_dir="", encryption_key = None, encryption_algo = None,
-                 number_of_streams=1, compress=False):
+                 number_of_streams=1, compress=False, client_ip_list = None, debug = False):
     """authenticate to the auth server and return a tuple (host, port, one-time-password)"""
     if base_dir != "" and not base_dir.endswith("/"):
         base_dir += "/"
@@ -262,7 +262,13 @@ def authenticate(auth_url, credential, base_dir="", encryption_key = None, encry
     if encryption_key:
         req["encryptionKey"] = encryption_key
         req["encryptionAlgorithm"] = encryption_algo
+    if client_ip_list:
+        req["client"] = client_ip_list
+    if debug:
+        print(f"Authentication request: {req}")
     params = post_json(auth_url, credential, req)
+    if debug:
+        print(f"Server response: {params}")
     success = params['success']
     if(str(success).lower()=="false"):
         try:
