@@ -1,7 +1,7 @@
 """ Base command class and a few general commands """
 
 import pyuftp.authenticate
-import argparse, base64, getpass, json, os, os.path, secrets, sys, threading
+import argparse, base64, getpass, json, os, os.path, secrets, sys, threading, socket
 from urllib.parse import urlparse
 
 class Base:
@@ -34,7 +34,15 @@ class Base:
                             help="Be verbose")
         self.parser.add_argument("-X", "--client",
                             required=False,
-                            help="Client IP address: address list")
+                            help="Client IP address list")
+        self.parser.add_argument("-4", "--force-ipv4",
+                            required=False,
+                            action="store_true",
+                            help="Force IPv4 (affects https and FTP connections)")
+        self.parser.add_argument("-6", "--force-ipv6",
+                            required=False,
+                            action="store_true",
+                            help="Force IPv6 (affects https and FTP connections)")
         auth_opts = self.parser.add_argument_group("Authentication")
         auth_opts.add_argument("-A", "--auth-token", metavar="TOKEN",
                                help="Bearer token value")
@@ -66,6 +74,18 @@ class Base:
         self.args = self.parser.parse_args(args)
         self.is_verbose = self.args.verbose
         self.client_ip_list = self.args.client
+        _family = None
+        if self.args.force_ipv4:
+            _family = socket.AddressFamily.AF_INET
+            if self.args.force_ipv6:
+                raise ValueError("Only one of '-4' or '-6' makes sense.")
+        elif self.args.force_ipv6:
+            _family = socket.AddressFamily.AF_INET6
+        if _family:
+            setup_address_filtering(_family)
+            if self.debug:
+                _f = "IPv4" if _family == socket.AddressFamily.AF_INET else "IPv6"
+                print(f"Forcing use of {_f}")
         self.create_credential()
 
     def get_synopsis(self):
@@ -358,3 +378,17 @@ class CopyBase(Base):
             unit = "MB/sec"
             rate = int(rate / 1000)
         print(f"USAGE [{threading.current_thread().name}] [{operation}] {source}-->{target} [{size} bytes] [{rate} {unit}]")
+
+
+
+def setup_address_filtering(family: socket.AddressFamily=None):
+    """ patch socket.getaddrinfo to only return TCP addresses of the given family """
+    if family:
+        import socket
+        orig_getaddrinfo = socket.getaddrinfo
+        def filtered_getaddrinfo(*args, **kwargs):
+            responses = orig_getaddrinfo(*args, **kwargs)
+            return [response
+                for response in responses
+                if response[0] == family]
+        socket.getaddrinfo = filtered_getaddrinfo

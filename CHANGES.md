@@ -3,6 +3,11 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.0.7
+-------------
+ - improvement: add "-4" and "-6" commandline switches to force usage
+   of IPv4 or IPv6
+
 Version 1.0.6
 -------------
  - fix: add option "-X", "--client" to explicitely set the client IP for the
