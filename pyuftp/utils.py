@@ -150,13 +150,13 @@ class Find(pyuftp.base.Base):
                 print(self.normalize_path(base_dir+"/"+entry))
 
 
-_factors = {"k":1024, "m":1024*1024, "g":1024*1024*1024}
+_memfactors = {"k":1024, "m":1024*1024, "g":1024*1024*1024}
 
 def parse_value_with_units(value):
     multiplier = value[-1].lower()
     _factor = 1
     if not multiplier in "0123456789":
-        _factor = _factors.get(multiplier)
+        _factor = _memfactors.get(multiplier)
         if not _factor:
             raise ValueError(f"Cannot parse '{value}'")
         value = value[:-1]

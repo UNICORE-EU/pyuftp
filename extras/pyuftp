@@ -10,7 +10,7 @@ _pyuftp()
 
 
   # parsing for uftp command word (2nd word in commandline.
-  # uftp <command> [OPTIONS] <args>)
+  # pyuftp <command> [OPTIONS] <args>)
   if [ $COMP_CWORD -eq 1 ]; then
     COMPREPLY=( $(compgen -W "${commands}" -- ${cur}) )
     return 0

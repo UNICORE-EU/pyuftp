@@ -2,7 +2,7 @@
 
 import pyuftp.base, pyuftp.cp, pyuftp.share, pyuftp.utils, pyuftp._version
 
-import platform, sys
+import os, platform, sys
 
 _commands = {
             "authenticate": pyuftp.base.Auth,
@@ -46,7 +46,6 @@ def run(args):
     if args[0] in _version:
         show_version()
         return
-
     command = None
     cmd = args[0]
     for k in _commands:
@@ -61,7 +60,14 @@ def main():
     """
     Main entry point
     """
-    run(sys.argv[1:])
+    try:
+        _debug = os.getenv("PYUFTP_DEBUG", "false").lower() in ["1", "true"]
+        run(sys.argv[1:])
+    except Exception as e:
+        print( f"ERROR: {repr(e)}")
+        if _debug:
+            raise e
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

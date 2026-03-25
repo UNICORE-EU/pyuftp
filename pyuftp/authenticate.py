@@ -266,7 +266,7 @@ def authenticate(auth_url, credential, base_dir="", encryption_key = None, encry
         req["client"] = client_ip_list
     if debug:
         print(f"Authentication request: {req}")
-    params = post_json(auth_url, credential, req)
+    params = send_json(auth_url, credential, req)
     if debug:
         print(f"Server response: {params}")
     success = params['success']
@@ -326,13 +326,14 @@ def get_string(url, credential, params: dict=None) ->  str:
 def get_connection_params(json_data) -> tuple[str, str, str]:
     return json_data["serverHost"], json_data["serverPort"], json_data["secret"]
 
-def post_json(url, credential, json_data, as_json = True):
+def send_json(url, credential, json_data, as_json = True, use_put=False):
     _headers = {
         "Authorization": credential.get_auth_header(),
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
-    with requests.post(headers=_headers, url=url, json=json_data, verify=False) as res:
+    _method = requests.put if use_put else requests.post
+    with _method(headers=_headers, url=url, json=json_data, verify=False) as res:
         check_error(res)
         if res.status_code==201:
             return res.headers['Location']

@@ -3,6 +3,12 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.1.0
+-------------
+ - new feature: "share": allow updating share with "--update share_id"
+ - improvement: "share": nicer format for "--list", add "--raw" option
+   to see the JSON as sent by the server
+
 Version 1.0.7
 -------------
  - improvement: add "-4" and "-6" commandline switches to force usage
