@@ -8,6 +8,7 @@ Version 1.1.0
  - new feature: "share": allow updating share with "--update share_id"
  - improvement: "share": nicer format for "--list", add "--raw" option
    to see the JSON as sent by the server
+ - fix: bash argument completion did not work correctly
 
 Version 1.0.7
 -------------

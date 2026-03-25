@@ -6,11 +6,11 @@ _pyuftp()
   cur=`_get_cword`
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   commands="authenticate checksum cp find info issue-token ls mkdir rcp rm share"
-  global_opts="--auth --help --identity --oidc --password --user --verbose"
+  global_opts="--auth-token --client --force-ipv4 --force-ipv6 --help --identity --oidc-agent --password --user --verbose"
 
 
   # parsing for uftp command word (2nd word in commandline.
-  # pyuftp <command> [OPTIONS] <args>)
+  # uftp <command> [OPTIONS] <args>)
   if [ $COMP_CWORD -eq 1 ]; then
     COMPREPLY=( $(compgen -W "${commands}" -- ${cur}) )
     return 0
@@ -25,13 +25,13 @@ _pyuftp()
     opts="$global_opts --algorithm"
     ;;
     cp)
-    opts="$global_opts --archive --bytes --compress --encrypt --recurse --resume --show --streams --threads"
+    opts="$global_opts --archive --bytes --compress --encrypt --recurse --resume --show-performance --streams --threads"
     ;;
     find)
-    opts="$global_opts --files --pattern --recurse"
+    opts="$global_opts --files-only --pattern --recurse"
     ;;
     info)
-    opts="$global_opts --connect --raw"
+    opts="$global_opts --connect-to-uftpd --raw"
     ;;
     issue-token)
     opts="$global_opts --inspect --lifetime --limited --renewable"
@@ -43,13 +43,13 @@ _pyuftp()
     opts="$global_opts "
     ;;
     rcp)
-    opts="$global_opts --bytes --compress --encrypt --one --server --streams"
+    opts="$global_opts --bytes --compress --encrypt --one-time-password --server --streams"
     ;;
     rm)
     opts="$global_opts "
     ;;
     share)
-    opts="$global_opts --access --delete --lifetime --list --one --server --write"
+    opts="$global_opts --access --delete --lifetime --list --one-time --raw --server --update --write"
     ;;
 
   esac

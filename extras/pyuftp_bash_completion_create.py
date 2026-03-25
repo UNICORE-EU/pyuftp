@@ -33,7 +33,7 @@ def find_options(command):
         if not line.startswith("-"):
             continue
         else:
-            s = re.search("(--\w*)", line).group(1)
+            s = re.search("(--[\w-]*)", line).group(1)
             options.append(s)
 
     return options
