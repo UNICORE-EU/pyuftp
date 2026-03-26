@@ -3,10 +3,10 @@ from pyuftp import client
 
 class TestCP(unittest.TestCase):
 
-    def x_test_cp_upload_download_1(self):
+    def test_cp_upload_download_1(self):
         self.do_upload_download()
 
-    def x_test_cp_upload_download_2(self):
+    def test_cp_upload_download_2(self):
         extra_args = [ "-n", "2" ]
         self.do_upload_download(extra_args)
 
@@ -35,15 +35,16 @@ class TestCP(unittest.TestCase):
             h3 = self._hash_local(f"{tempdir}/x")
             self.assertEqual(h1, h3, "Downloaded file does not match original")
 
-    def x_test_cp_upload_multiple(self):
+    def test_cp_upload_multiple(self):
         print(os.getcwd())
         cp = client.get_command("cp")
-        args = ["-v", "-u", "demouser:test123", 
+        args = ["-v", "-u", "demouser:test123",
+                "-t", "2",
                 "pyuftp/base.py", "pyuftp/c*.py",
                 "https://localhost:9000/rest/auth/TEST:/dev/null"]
         cp.run(args)
 
-    def x_test_cp_download_multiple(self):
+    def test_cp_download_multiple(self):
         with tempfile.TemporaryDirectory() as tempdir:
             remote_dir = self._mk_tmpdir()
             for i in [1,2,3]:
@@ -65,7 +66,7 @@ class TestCP(unittest.TestCase):
                         d ]
                 cp.run(args)
 
-    def x_test_cp_download_stdout(self):
+    def test_cp_download_stdout(self):
         with tempfile.TemporaryDirectory() as tempdir:
             remote_dir = self._mk_tmpdir()
             with open(f"{tempdir}/test1.txt", "wb") as f:

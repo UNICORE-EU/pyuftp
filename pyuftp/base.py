@@ -8,6 +8,11 @@ class Base:
     """ Base command class with support for common commandline args """
 
     def __init__(self, password_source=None):
+        try:
+            from urllib3 import disable_warnings
+            disable_warnings()
+        except:
+            pass
         self.parser = argparse.ArgumentParser(prog="pyuftp",
                                               description="A commandline client for UFTP (UNICORE FTP)")
         self.args = None

@@ -4,6 +4,7 @@ import pyuftp.base, pyuftp.cp, pyuftp.share, pyuftp.utils, pyuftp._version
 
 import os, platform, sys
 
+
 _commands = {
             "authenticate": pyuftp.base.Auth,
             "checksum": pyuftp.utils.Checksum,

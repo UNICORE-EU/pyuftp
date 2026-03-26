@@ -2,13 +2,6 @@
     Helpers for authenticating
 """
 
-try:
-    from urllib3 import disable_warnings
-
-    disable_warnings()
-except ImportError:
-    pass
-
 from abc import ABCMeta, abstractmethod
 from base64 import b64encode, b64decode
 from jwt import encode as jwt_encode

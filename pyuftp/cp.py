@@ -1,7 +1,7 @@
 """ Copy command class and helpers """
 
 import pyuftp.base, pyuftp.uftp, pyuftp.utils
-import os, os.path, pathlib, sys, threading
+import os, os.path, pathlib, queue, sys, threading
 from concurrent.futures import ThreadPoolExecutor
 
 class Copy(pyuftp.base.CopyBase):
@@ -13,7 +13,7 @@ class Copy(pyuftp.base.CopyBase):
         self.parser.add_argument("target", help="Target")
         self.parser.add_argument("-r", "--recurse", required=False, action="store_true",
                                  help="Recurse into subdirectories, if applicable")
-        self.parser.add_argument("-a", "--archive", action="store_true", required=False,
+        self.parser.add_argument("-a", "--archive", required=False, action="store_true",
                                  help="Tell server to interpret data as tar/zip stream and unpack it")
         self.parser.add_argument("-t", "--threads", required=False, type=int, default=1,
                                  help="Maximum number of client threads / parallel UFTP sessions to use")
@@ -21,6 +21,9 @@ class Copy(pyuftp.base.CopyBase):
                                  help="Check existing target file(s) and try to resume")
         self.parser.add_argument("-D", "--show-performance", required=False, action="store_true",
                                  help="Show detailed transfer rates during the transfer")
+        self.parser.add_argument("-Y", "--retry-failed-tasks", required=False, type=int, default=1,
+                                 metavar="numRetries",
+                                 help="Automatically Re-try (resume) failed transfers")
 
     def get_synopsis(self):
         return """Copy file(s)"""
@@ -54,6 +57,7 @@ class Copy(pyuftp.base.CopyBase):
                 self.do_upload(s, self.args.target)
         if self.number_of_threads>1:
             self.executor.shutdown(wait=True, cancel_futures=False)
+            pass
 
     def check_download_exists(self, target):
         if not os.path.exists(target):
@@ -75,6 +79,7 @@ class Copy(pyuftp.base.CopyBase):
             return
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
+        client_pool = ClientPool(self, endpoint, base_dir, self.number_of_threads, self.performance_display)
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
             uftp.key = self.key
             uftp.algo = self.algo
@@ -89,37 +94,38 @@ class Copy(pyuftp.base.CopyBase):
                         os.makedirs(local_dir, mode=0o755, exist_ok=True)
                 else:
                     target = local
-                if self.resume:
-                    exists, size = self.check_download_exists(target)
-                    if exists:
+                exists, size = self.check_download_exists(target)
+                if exists:
+                    if self.resume:
                         if size==remote_size:
                             self.verbose(f"'{target}': skipping.")
                             continue
-                        else:
+                        elif size<remote_size:
                             self.verbose(f"'{target}': resuming at {size}.")
                             offset = size
                             length = remote_size - offset
-                else:
-                    exists, size = self.check_download_exists(target)
-                    if exists and not rw:
+                        else:
+                            self.verbose(f"Inconsistent file size for resuming '{target}': skipping.")
+                    elif not rw:
                         try:
                             with open(target, "r+b") as fl:
                                 fl.truncate(0)
                                 self.verbose(f"'{target}': truncating.")
                         except OSError:
                             pass
-                args = [endpoint, base_dir, item, offset, length, target, rw]
+                args = [item, offset, length, target, rw]
                 if self.number_of_threads==1:
                     uftp.performance_display = self.performance_display
-                    Worker(self, uftp=uftp).download(*args)
+                    Worker(self, client_pool).download(*args)
                 else:
-                    self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).download, *args)
+                    self.executor.submit(Worker(self, client_pool).download, *args)
 
     def do_upload(self, local, remote):
         """ upload local source (which can specify wildcards) to a remote location """
         endpoint, base_dir, remote_file_name  = self.parse_url(remote)
         host, port, onetime_pwd = self.authenticate(endpoint, base_dir)
         self.verbose(f"Connecting to UFTPD {host}:{port}")
+        client_pool = ClientPool(self, endpoint, base_dir, self.number_of_threads, self.performance_display)
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
             uftp.key = self.key
             uftp.algo = self.algo
@@ -164,40 +170,59 @@ class Copy(pyuftp.base.CopyBase):
                                 self.verbose(f"'{target}': resuming at {remote_size}.")
                                 offset = remote_size
                                 length = local_size - offset
-                    args = [endpoint, base_dir, item, target, offset, length, rw]
+                    args = [item, target, offset, length, rw]
                     if self.number_of_threads==1:
                         uftp.performance_display = self.performance_display
-                        Worker(self, uftp=uftp).upload(*args)
+                        Worker(self, client_pool).upload(*args)
                     else:
-                        self.executor.submit(Worker(self, self.thread_storage, None, self.performance_display).upload, *args)
+                        self.executor.submit(Worker(self, client_pool).upload, *args)
+
+class ClientPool():
+    """ Pools working UFTP client instances, creating new ones if needed (and possible) """
+    def __init__(self, base_command: Copy, endpoint: str, base_dir: str, max_clients: int, performance_display=None):
+        self.base = base_command
+        self.endpoint = endpoint
+        self.base_dir = base_dir
+        self.max_clients = max_clients
+        self.performance_display = performance_display
+        self.queue = queue.SimpleQueue()
+        self.num_clients = 0
+        self._lock = threading.Lock()
+
+    def create(self)-> pyuftp.uftp.UFTP:
+        host, port, onetime_pwd = self.base.authenticate(self.endpoint, self.base_dir)
+        self.base.verbose(f"[{threading.current_thread().name}] Connecting to UFTPD {host}:{port}")
+        _uftp = pyuftp.uftp.UFTP(self.base.number_of_streams, self.base.key, self.base.algo, self.base.compress)
+        _uftp.open_session(host, port, onetime_pwd)
+        _uftp.performance_display = self.performance_display
+        self.queue.put(_uftp)
+    
+    def get(self) -> pyuftp.uftp.UFTP:
+        with self._lock:
+            if self.num_clients<self.max_clients:
+                try:
+                    self.create()
+                    self.num_clients = self.num_clients+1
+                except Exception as e:
+                    self.base.verbose(f"Could not create uftp client: {repr(e)}")
+        return self.queue.get()
+
+    def put(self, client: pyuftp.uftp.UFTP):
+        # TBD check if client is still useable
+        self.queue.put(client)
 
 class Worker():
     """ performs uploads/downloads, suitable for running in a pool thread """
-    def __init__(self, base_command: Copy, thread_local=None, uftp: pyuftp.uftp.UFTP=None, performance_display=None):
+    def __init__(self, base_command: Copy, client_pool: ClientPool):
         self.base = base_command
-        self.thread_storage = thread_local
-        self.uftp = uftp
-        self.performance_display = performance_display
+        self.client_pool = client_pool
 
-    def setup(self, endpoint, base_dir):
-        if self.thread_storage is not None:
-            self.uftp = getattr(self.thread_storage, "uftp", None)
-        if self.uftp is not None:
-            return
-        host, port, onetime_pwd = self.base.authenticate(endpoint, base_dir)
-        self.base.verbose(f"[{threading.current_thread().name}] Connecting to UFTPD {host}:{port}")
-        self.uftp = pyuftp.uftp.UFTP(self.base.number_of_streams, self.base.key, self.base.algo, self.base.compress)
-        self.uftp.open_session(host, port, onetime_pwd)
-        if self.thread_storage is not None:
-            self.thread_storage.uftp = self.uftp
-        self.uftp.performance_display = self.performance_display
-
-    def download(self, endpoint, base_dir, item, offset, length, target, write_range=False):
-        self.setup(endpoint, base_dir)
+    def download(self, item, offset, length, target, write_range=False):
+        _uftp = self.client_pool.get()
         source = os.path.basename(item)
-        with self.uftp.get_reader(source, offset, length) as (reader, _):
+        with _uftp.get_reader(source, offset, length) as (reader, _):
             if "-"==target:
-                total, duration = self.uftp.copy_data(reader, sys.stdout.buffer, length)
+                total, duration = _uftp.copy_data(reader, sys.stdout.buffer, length)
                 target="stdout"
             else:
                 pathlib.Path(target).touch()
@@ -210,22 +235,25 @@ class Worker():
                         except OSError:
                             # can happen if it is not a regular file, e.g. /dev/null
                             pass
-                    total, duration = self.uftp.copy_data(reader, f, length)
+                    total, duration = _uftp.copy_data(reader, f, length)
         self.base.log_usage(False, item, target, total, duration)
-        self.uftp.finish_transfer()
+        _uftp.finish_transfer()
+        self.client_pool.put(_uftp)
         return "OK"
 
-    def upload(self, endpoint, base_dir, item, target, offset, length, write_range=False):
-        self.setup(endpoint, base_dir)
+    def upload(self, item, target, offset, length, write_range=False):
+        _uftp = self.client_pool.get()
         remote_offset = offset if write_range else 0
-        with self.uftp.get_writer(target, remote_offset, length, write_range) as writer:
+        with _uftp.get_writer(target, remote_offset, length, write_range) as writer:
             with open(item, "rb") as f:
                 if offset>0:
                     f.seek(offset)
-                total, duration = self.uftp.copy_data(f, writer, length)
-        self.uftp.finish_transfer()
+                total, duration = _uftp.copy_data(f, writer, length)
+        _uftp.finish_transfer()
+        self.client_pool.put(_uftp)
         self.base.log_usage(True, item, target, total, duration)
         return "OK"
+
 
 class RemoteCopy(pyuftp.base.CopyBase):
 
