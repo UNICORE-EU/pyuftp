@@ -13,9 +13,7 @@ python_requires = ">=3.9"
 with open("requirements.txt", "r") as f:
     install_requires = f.readlines()
 
-extras_require = {
-   "fs": ["fs>=2.4.0"]
-}
+extras_require = {}
 
 data_files = []
 if system()!="Windows":
