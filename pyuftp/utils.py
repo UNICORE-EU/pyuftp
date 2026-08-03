@@ -183,20 +183,18 @@ def crawl_remote(uftp, base_dir, file_pattern="*", recurse=False, all=False, fil
                 uftp.cwd(x.path)
             except OSError:
                 continue
-            for y, size in crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all, _level+1):
-                yield y, size
+            yield from crawl_remote(uftp, base_dir+"/"+x.path, file_pattern, recurse, all, _level+1)
             uftp.cdup()
     
 def crawl_local(base_dir, file_pattern="*", recurse=False, all=False):
     for x in os.listdir(base_dir):
-        if not os.path.isdir(base_dir+"/"+x):
-            if not fnmatch.fnmatch(x, file_pattern):
-                continue
-            else:
-                yield base_dir+"/"+x
-        if all or (recurse and fnmatch.fnmatch(x, file_pattern)):
-            for y in crawl_local(base_dir+"/"+x, file_pattern, recurse, all):
-                yield y
+        full_path = os.path.join(base_dir, x)
+        if os.path.isfile(full_path):
+            if fnmatch.fnmatch(x, file_pattern):
+                yield full_path
+        elif os.path.isdir(full_path):
+            if all or (recurse and fnmatch.fnmatch(x, file_pattern)):
+                yield from crawl_local(full_path, file_pattern, recurse, all)
 
 class GzipWriter(object):
     
