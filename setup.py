@@ -8,12 +8,14 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
-python_requires = ">=3.7"
+python_requires = ">=3.9"
 
 with open("requirements.txt", "r") as f:
     install_requires = f.readlines()
 
-extras_require = {}
+extras_require = {
+   "fs": ["fs>=2.4.0"]
+}
 
 data_files = []
 if system()!="Windows":

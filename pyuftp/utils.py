@@ -103,6 +103,7 @@ class Checksum(pyuftp.base.Base):
         self.verbose(f"Connecting to UFTPD {host}:{port} base_dir={base_dir}")
         _hash = ""
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            uftp.set_session_options(**self.uftp_options)
             root_dir = base_dir if len(base_dir)>0 else "/"
             for (entry, _) in crawl_remote(uftp, base_dir, file_name):
                 entry = os.path.relpath(entry, root_dir)

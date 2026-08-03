@@ -23,7 +23,7 @@ class Copy(pyuftp.base.CopyBase):
                                  help="Show detailed transfer rates during the transfer")
         self.parser.add_argument("-Y", "--retry-failed-tasks", required=False, type=int, default=1,
                                  metavar="numRetries",
-                                 help="Automatically Re-try (resume) failed transfers")
+                                 help="Automatically re-try (resume) failed transfers")
 
     def get_synopsis(self):
         return """Copy file(s)"""
@@ -81,6 +81,7 @@ class Copy(pyuftp.base.CopyBase):
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         client_pool = ClientPool(self, endpoint, base_dir, self.number_of_threads, self.performance_display)
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            uftp.set_session_options(**self.uftp_options)
             uftp.key = self.key
             uftp.algo = self.algo
             uftp.number_of_streams = self.number_of_streams
@@ -127,6 +128,7 @@ class Copy(pyuftp.base.CopyBase):
         self.verbose(f"Connecting to UFTPD {host}:{port}")
         client_pool = ClientPool(self, endpoint, base_dir, self.number_of_threads, self.performance_display)
         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
+            uftp.set_session_options(**self.uftp_options)
             uftp.key = self.key
             uftp.algo = self.algo
             uftp.number_of_streams = self.number_of_streams
@@ -194,6 +196,7 @@ class ClientPool():
         self.base.verbose(f"[{threading.current_thread().name}] Connecting to UFTPD {host}:{port}")
         _uftp = pyuftp.uftp.UFTP(self.base.number_of_streams, self.base.key, self.base.algo, self.base.compress)
         _uftp.open_session(host, port, onetime_pwd)
+        _uftp.set_session_options(**self.base.uftp_options)
         _uftp.performance_display = self.performance_display
         self.queue.put(_uftp)
     

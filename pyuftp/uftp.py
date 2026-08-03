@@ -151,14 +151,18 @@ class UFTP:
     def set_archive_mode(self):
         self.ftp.sendcmd("TYPE ARCHIVE")
 
+    def set_session_options(self, **kwargs):
+        for key in kwargs.keys():
+            self.ftp.sendcmd(f"OPTS {key} {kwargs[key]}")
+            if "BUFFER_SIZE"==key:
+                self.buffer_size = int(kwargs[key])
+
     def checksum(self, path, algo=None):
         """ get a checksum """
         path = self.normalize(path)
         try:
             if algo:
-                reply = self.ftp.sendcmd("OPTS HASH %s" % algo)
-                if not reply.startswith("200"):
-                    raise ValueError("No such algorithm: " % reply)
+                self.set_session_options(HASH=algo)
             self.ftp.putline(f"HASH {path}")
             reply = self.ftp.getmultiline().split("\n")
             if not reply[0].startswith("213"):

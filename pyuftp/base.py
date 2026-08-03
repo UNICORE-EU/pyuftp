@@ -31,6 +31,7 @@ class Base:
         self.number_of_streams = 1
         self.client_ip_list = None
         self.debug = os.getenv("PYUFTP_DEBUG", "false").lower() in ["1", "true"] 
+        self.uftp_options = _parse_options()
 
     def add_base_args(self):
         self.parser.add_argument("-v", "--verbose",
@@ -160,6 +161,14 @@ class Base:
         while p.startswith("//"):
             p = p[1:]
         return p
+
+    def _parse_options(environment="UFTP_OPTIONS")->dict:
+        _opts = os.getenv(environment, "")
+        res = {}
+        for x in _opts.split(","):
+            _t = x.split("=", 1)
+            res[_t[0]] =_t[1]
+        return res
 
     def verbose(self, msg):
         if self.is_verbose:
@@ -397,3 +406,14 @@ def setup_address_filtering(family: socket.AddressFamily=None):
                 for response in responses
                 if response[0] == family]
         socket.getaddrinfo = filtered_getaddrinfo
+
+def _parse_options(environment="UFTP_OPTIONS")->dict:
+    _opts = os.getenv(environment, "")
+    res = {}
+    for x in _opts.split(","):
+        x = x.strip()
+        if len(x)==0:
+            continue
+        _t = x.split("=", 1)
+        res[_t[0]] =_t[1]
+    return res
