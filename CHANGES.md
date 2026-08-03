@@ -3,18 +3,15 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
-
-Version 1.2.0
--------------
- - new feature: support setting extended/low-level parameters via
-   UFTP_OPTIONS environment variable
-
 Version 1.1.0
 -------------
  - new feature: "share": allow updating share with "--update share_id"
+ - new feature: support setting extended/low-level parameters via
+   UFTP_OPTIONS environment variable
  - improvement: "share": nicer format for "--list", add "--raw" option
    to see the JSON as sent by the server
  - fix: bash argument completion did not work correctly
+ - fix: local file crawling was buggy
 
 Version 1.0.7
 -------------
