@@ -3,6 +3,12 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+
+Version 1.1.1
+-------------
+ - fix: (on Windows) corrupted filenames when uploading into a directory
+ - fix: remove unneeded 'fs' extra dependency
+
 Version 1.1.0
 -------------
  - new feature: "share": allow updating share with "--update share_id"

@@ -7,12 +7,12 @@ as a "single block", applying padding only to the last chunk
 from Crypto.Cipher import AES, Blowfish
 from struct import pack
 
-def create_cipher(key, algo):
-    if "BLOWFISH".upper()==algo:
+def create_cipher(key, algo: str):
+    if "BLOWFISH"==algo.upper():
         if len(key)>56:
             raise ValueError("Key length must <=56 for encryption algorithm: %s" % algo)
         return Blowfish.new(key, mode = Blowfish.MODE_ECB)
-    elif "AES".upper()==algo:
+    elif "AES"==algo.upper():
         if len(key)<32:
             raise ValueError("Key length must be >32 for encryption algorithm: %s" % algo)
         key_length = len(key) - 16

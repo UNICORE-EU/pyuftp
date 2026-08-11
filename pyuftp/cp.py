@@ -158,7 +158,7 @@ class Copy(pyuftp.base.CopyBase):
                         target = self.normalize_path(remote_file_name+"/"+rel_path)
                     else:
                         target = remote_file_name
-                    if target.startswith("/"):
+                    if target.startswith(os.path.sep):
                         target = target[1:]
                     local_size = os.stat(item).st_size
                     offset, length, rw = self._get_range(local_size)
