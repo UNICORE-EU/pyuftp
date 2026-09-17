@@ -163,6 +163,20 @@ def parse_value_with_units(value):
         value = value[:-1]
     return _factor * int(value)
 
+def human_readable(num_bytes: int) -> str:
+    _units = {
+        'TB': 2**40,
+        'GB': 2**30,
+        'MB': 2**20,
+        'KB': 2**10,
+        'B': 1,
+    }
+    for unit, factor in _units.items():
+        if factor <= num_bytes:
+            break
+    # build response
+    return f'{float(num_bytes/factor):.2f} {unit}'
+
 def is_wildcard(path):
     return "*" in path or "?" in path
 

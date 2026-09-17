@@ -58,6 +58,16 @@ class Copy(pyuftp.base.CopyBase):
         if self.number_of_threads>1:
             self.executor.shutdown(wait=True, cancel_futures=False)
             pass
+        if self.dry_run:
+            self.verbose("This command would have resulted in the following:")
+            self.verbose(f"Number of source files:        {self.statistics.number_of_source_files}")
+            self.verbose(f" - distinct source file paths: {len(self.statistics.source_file_names)}")
+            self.verbose(f" - distinct target file paths: {len(self.statistics.target_file_names)}")
+            if self.resume:
+                self.verbose(f" - transfers to be resumed:     {self.statistics.number_of_resumed_files}")
+                self.verbose(f" - transfers to be skipped:     {self.statistics.number_of_existing_files}")
+            hr = pyuftp.utils.human_readable(self.statistics.total_bytes)
+            self.verbose(f"Total bytes to transfer:       {self.statistics.total_bytes} ({hr})")
 
     def check_download_exists(self, target):
         if not os.path.exists(target):
@@ -91,12 +101,16 @@ class Copy(pyuftp.base.CopyBase):
                 if os.path.isdir(local):
                     target = self.normalize_path(local+"/"+item)
                     local_dir = os.path.dirname(target)
-                    if len(local_dir)>0 and not os.path.isdir(local_dir):
+                    if len(local_dir)>0 and not os.path.isdir(local_dir) and not self.dry_run:
                         os.makedirs(local_dir, mode=0o755, exist_ok=True)
                 else:
                     target = local
+                self.statistics.number_of_source_files+=1
+                self.statistics.target_file_names.add(target)
+                self.statistics.source_file_names.add(item)
                 exists, size = self.check_download_exists(target)
                 if exists:
+                    self.statistics.number_of_existing_files+=1
                     if self.resume:
                         if size==remote_size:
                             self.verbose(f"'{target}': skipping.")
@@ -105,9 +119,11 @@ class Copy(pyuftp.base.CopyBase):
                             self.verbose(f"'{target}': resuming at {size}.")
                             offset = size
                             length = remote_size - offset
+                            self.statistics.total_bytes+=length
+                            self.statistics.number_of_resumed_files+=1
                         else:
                             self.verbose(f"Inconsistent file size for resuming '{target}': skipping.")
-                    elif not rw:
+                    elif not rw and not self.dry_run:
                         try:
                             with open(target, "r+b") as fl:
                                 fl.truncate(0)
@@ -115,11 +131,14 @@ class Copy(pyuftp.base.CopyBase):
                         except OSError:
                             pass
                 args = [item, offset, length, target, rw]
-                if self.number_of_threads==1:
-                    uftp.performance_display = self.performance_display
-                    Worker(self, client_pool).download(*args)
-                else:
-                    self.executor.submit(Worker(self, client_pool).download, *args)
+                if length==-1:
+                    self.statistics.total_bytes+=remote_size
+                if not self.dry_run:
+                    if self.number_of_threads==1:
+                        uftp.performance_display = self.performance_display
+                        Worker(self, client_pool).download(*args)
+                    else:
+                        self.executor.submit(Worker(self, client_pool).download, *args)
 
     def do_upload(self, local, remote):
         """ upload local source (which can specify wildcards) to a remote location """
@@ -138,10 +157,15 @@ class Copy(pyuftp.base.CopyBase):
             if "-"==local:
                 offset, length, rw = self._get_range()
                 remote_offset = offset if self.range_read_write else 0
-                with uftp.get_writer(remote_file_name, remote_offset, length, rw) as writer:
-                    total, duration = uftp.copy_data(sys.stdin.buffer, writer, length)
-                    self.log_usage(True, "stdin", remote_file_name, total, duration)
-                uftp.finish_transfer()
+                self.statistics.source_file_names.add("stdin")
+                self.statistics.target_file_names.add(remote_file_name)
+                self.statistics.total_bytes+=length
+                self.statistics.number_of_source_files+=1
+                if not self.dry_run:                                
+                    with uftp.get_writer(remote_file_name, remote_offset, length, rw) as writer:
+                        total, duration = uftp.copy_data(sys.stdin.buffer, writer, length)
+                        self.log_usage(True, "stdin", remote_file_name, total, duration)
+                    uftp.finish_transfer()
             else:
                 local_base_dir = os.path.dirname(local)
                 if local_base_dir == "":
@@ -173,11 +197,16 @@ class Copy(pyuftp.base.CopyBase):
                                 offset = remote_size
                                 length = local_size - offset
                     args = [item, target, offset, length, rw]
-                    if self.number_of_threads==1:
-                        uftp.performance_display = self.performance_display
-                        Worker(self, client_pool).upload(*args)
-                    else:
-                        self.executor.submit(Worker(self, client_pool).upload, *args)
+                    self.statistics.source_file_names.add(item)
+                    self.statistics.target_file_names.add(target)
+                    self.statistics.total_bytes+=length
+                    self.statistics.number_of_source_files+=1
+                    if not self.dry_run:
+                        if self.number_of_threads==1:
+                            uftp.performance_display = self.performance_display
+                            Worker(self, client_pool).upload(*args)
+                        else:
+                            self.executor.submit(Worker(self, client_pool).upload, *args)
 
 class ClientPool():
     """ Pools working UFTP client instances, creating new ones if needed (and possible) """
@@ -295,7 +324,11 @@ class RemoteCopy(pyuftp.base.CopyBase):
             offset, length, rw = self._get_range()
             t_endpoint, t_base_dir, t_filename  = self.parse_url(self.args.target)
             t_host, t_port, t_password = self.authenticate(t_endpoint, t_base_dir)
-            with pyuftp.uftp.open(t_host, t_port, t_password) as uftp:
-                uftp.set_remote_write_range(offset, length, rw)
-                reply = uftp.receive_file(t_filename, s_filename, s_server, s_password)
-                self.verbose(reply)
+            self.statistics.source_file_names.add(s_filename)
+            self.statistics.target_file_names.add(t_filename)
+            self.statistics.total_bytes+=length
+            if not self.dry_run:
+                with pyuftp.uftp.open(t_host, t_port, t_password) as uftp:
+                    uftp.set_remote_write_range(offset, length, rw)
+                    reply = uftp.receive_file(t_filename, s_filename, s_server, s_password)
+                    self.verbose(reply)

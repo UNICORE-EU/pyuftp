@@ -3,6 +3,10 @@ Changelog for the PyUFTP client
 
 Issue tracker: https://github.com/UNICORE-EU/pyuftp/issues
 
+Version 1.2.0
+-------------
+ - new feature: add --dry-run option for "cp" to just collect statistics
+   without actually transferring data
 
 Version 1.1.1
 -------------

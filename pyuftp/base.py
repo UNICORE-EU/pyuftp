@@ -239,19 +239,19 @@ class Info(Base):
                 sharing = "enabled"
             else:
                 sharing = "disabled"
+            print(f"  Sharing support:  {sharing}")
             rate_limit = server.get('rateLimit', 0)
             if rate_limit > 0:
                 rate_limit = self.human_readable(rate_limit)
                 print(f"  Rate limit:       {rate_limit}/sec")
             session_limit = server.get('sessionLimit', 0)
             if session_limit > 0:
-                print(f"  Session limit:    {session_limit}")
+                print(f"  Max. sessions:    {session_limit}")
             reservations = server.get("reservations", [])
             if len(reservations)>0:
                 print(f"  Reservations:")
                 for r in reservations:
                     print(f"    * {r}")
-            print(f"  Sharing support:  {sharing}")
             print(f"  Server status:    {server.get('status', 'N/A')}")
 
 
@@ -326,6 +326,8 @@ class CopyBase(Base):
                             help="Number of TCP streams per connection/thread")
         group.add_argument("-C", "--compress", required=False, action="store_true",
                             help="Compress data for transfer")
+        self.parser.add_argument("-d", "--dry-run", required=False, action="store_true",
+                                 help="Don't actually transfer anything, just collect some statistics")
 
     def run(self, args):
         super().run(args)
@@ -352,6 +354,10 @@ class CopyBase(Base):
         self.compress = self.args.compress
         if self.compress:
             self.verbose(f"Compressing data = {self.compress}")
+        self.dry_run = self.args.dry_run
+        if self.dry_run:
+            print("Dry-run mode enabled, will not transfer anything.")
+        self.statistics = Statistics()
 
     def init_range(self):
         self.start_byte = 0
@@ -417,3 +423,14 @@ def _parse_options(environment="UFTP_OPTIONS")->dict:
         _t = x.split("=", 1)
         res[_t[0]] =_t[1]
     return res
+
+
+class Statistics(object):
+    
+    def __init__(self):
+        self.source_file_names = set()
+        self.target_file_names = set()
+        self.total_bytes = 0
+        self.number_of_source_files = 0
+        self.number_of_existing_files = 0
+        self.number_of_resumed_files = 0
