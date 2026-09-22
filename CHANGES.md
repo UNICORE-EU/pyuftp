@@ -7,6 +7,8 @@ Version 1.2.0
 -------------
  - new feature: add --dry-run option for "cp" to just collect statistics
    without actually transferring data
+ - new feature: "info" now has a performance test option ("-p")
+ - improvement: "info" use same option names as the Java version
 
 Version 1.1.1
 -------------

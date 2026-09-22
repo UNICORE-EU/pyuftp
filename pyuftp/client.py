@@ -1,21 +1,21 @@
 """ Main client class """
 
-import pyuftp.base, pyuftp.cp, pyuftp.share, pyuftp.utils, pyuftp._version
+import pyuftp.base, pyuftp.cp, pyuftp.share, pyuftp.helpers, pyuftp._version
 
 import os, platform, sys
 
 
 _commands = {
             "authenticate": pyuftp.base.Auth,
-            "checksum": pyuftp.utils.Checksum,
+            "checksum": pyuftp.helpers.Checksum,
             "cp": pyuftp.cp.Copy,
-            "find": pyuftp.utils.Find,
+            "find": pyuftp.helpers.Find,
             "info": pyuftp.base.Info,
             "issue-token": pyuftp.base.IssueToken,
-            "ls": pyuftp.utils.Ls,
-            "mkdir": pyuftp.utils.Mkdir,
+            "ls": pyuftp.helpers.Ls,
+            "mkdir": pyuftp.helpers.Mkdir,
             "rcp": pyuftp.cp.RemoteCopy,
-            "rm": pyuftp.utils.Rm,
+            "rm": pyuftp.helpers.Rm,
             "share": pyuftp.share.Share,
         }
 

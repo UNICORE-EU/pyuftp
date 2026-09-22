@@ -1,4 +1,4 @@
-import time, os, unittest
+import unittest
 from pyuftp import client
 
 

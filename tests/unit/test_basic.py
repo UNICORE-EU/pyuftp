@@ -1,4 +1,4 @@
-import os, unittest
+import unittest
 from pyuftp import client
 from pyuftp.base import Base
 

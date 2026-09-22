@@ -1,7 +1,11 @@
 """ Base command class and a few general commands """
 
 import pyuftp.authenticate
+import pyuftp.uftp
+import pyuftp.utils
+
 import argparse, base64, getpass, json, os, os.path, secrets, sys, threading, socket
+from time import time
 from urllib.parse import urlparse
 
 class Base:
@@ -182,8 +186,10 @@ class Info(Base):
         self.parser.add_argument("authURL", help="Auth server URL")
         self.parser.add_argument("-R", "--raw", action="store_true",
                                  help="Print the JSON response from the server")
-        self.parser.add_argument("-C", "--connect-to-uftpd", action="store_true",
-                                 help="Connect to UFTPD and get info")
+        self.parser.add_argument("-N", "--no-check-session", action="store_true",
+                                 help="Don't try to establish and check a UFTP session")
+        self.parser.add_argument("-p", "--performance-check", action="store_true",
+                                     help="Run a quick test of the single-thread performance")
         self.server_info = {}
         
     def get_synopsis(self):
@@ -201,14 +207,14 @@ class Info(Base):
             print(json.dumps(reply, indent=2))
         else:
             self.show_info(reply, auth_url)
-        if self.args.connect_to_uftpd:
+        if not self.args.no_check_session:
             for name in reply:
                 if name in ["client", "server"]:
                     continue
                 auth_url = reply[name]["href"]
                 self.server_info[name] = {"url": auth_url}
                 try:
-                    host, port, onetime_pwd = pyuftp.authenticate.authenticate(auth_url, self.credential)
+                    host, port, onetime_pwd = pyuftp.authenticate.authenticate(auth_url, self.credential, "/")
                     try:
                         with pyuftp.uftp.open(host, port, onetime_pwd) as uftp:
                             print(f"Connected to UFTPD '{name}' at {host}:{port}")
@@ -218,7 +224,12 @@ class Info(Base):
                                 uftp.listdir(".")
                             except Exception as e:
                                 print(f"ERROR: opening UFTP data connection failed:", str(e))
+                                return
+                            if self.args.performance_check:
+                                self.run_perftest(uftp)                        
                     except Exception as e:
+                        import traceback
+                        print(traceback.format_exc())
                         print(f"ERROR: connecting to UFTPD '{name}' at {host}:{port}:", str(e))
                 except Exception as e:
                     print(f"ERROR: UFTPD server '{name}' unavailable.")
@@ -242,8 +253,7 @@ class Info(Base):
             print(f"  Sharing support:  {sharing}")
             rate_limit = server.get('rateLimit', 0)
             if rate_limit > 0:
-                rate_limit = self.human_readable(rate_limit)
-                print(f"  Rate limit:       {rate_limit}/sec")
+                print(f"  Rate limit:       {pyuftp.utils.human_readable(rate_limit)}/sec")
             session_limit = server.get('sessionLimit', 0)
             if session_limit > 0:
                 print(f"  Max. sessions:    {session_limit}")
@@ -254,13 +264,35 @@ class Info(Base):
                     print(f"    * {r}")
             print(f"  Server status:    {server.get('status', 'N/A')}")
 
+    def run_perftest(self, uftp: pyuftp.uftp.UFTP):
+        try:
+            uftp.stat("/dev/zero")
+        except OSError:
+            print("Cannot test performance - remote storage does not have '/dev/zero'")
+            return
+        print("Testing single-thread performance, this can take a few seconds ... (ctrl-c to interrupt)")
+        l = 10*1024*1024
+        duration = 0
+        maxRate = float(0)
+        rate = float(0)
+        while duration < 5:
+            with uftp.get_reader("/dev/zero", 0, l) as (reader, _):
+                start = time()
+                uftp.copy_data(reader, NullWriter(), l)
+                uftp.finish_transfer()
+                duration = time()-start
+                rate = l/duration
+                maxRate = max(rate, maxRate)
+                self.verbose(f"   ... data size {pyuftp.utils.human_readable(l)}"+
+                        f" --> {pyuftp.utils.human_readable(rate)}/s")
+                l = l * pow(2, int(max(1, (4-duration))))
+        print(f"Single-thread performance estimated at {pyuftp.utils.human_readable(maxRate)}/s")
 
-    def human_readable(self, value, decimals=0):
-        for unit in ['B', 'KB', 'MB', 'GB' ]:
-            if value < 1024.0 or unit == 'GB':
-                break
-            value /= 1024.0
-        return f"{value:.{decimals}f} {unit}"
+class NullWriter(object):
+    def write(self, data):
+        return len(data)
+    def flush(self):
+        pass
 
 class Auth(Base):
 
